@@ -33,10 +33,10 @@ for (i in 1:NBOOT) {
   
   # Extract median and quantile information
   medianKMSurv <- as.data.frame(quantile(kmfit, probs = c(0.5, 0.95))) %>%  
-    dplyr::select(quantile.50, quantile.95)
+    dplyr::select(quantile.50)
   medianKMSurv$species <- gsub("species=", "", rownames(medianKMSurv))
   
-  # Calculate maximum lifespan for each species
+  # Calculate maximum lifespan for each species within each bootstrap sample
   maxLifespan <- tmp %>% 
     group_by(species) %>% 
     summarise(maxLifespan = max(lifespan))
