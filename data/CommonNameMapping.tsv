@@ -1,0 +1,47 @@
+common_name	sci_name	sci_family	family_desc	SexMature
+Gray-bellied Night Monkey	Aotus lemurinus	Aotidae	Night monkeys	2.50
+Owl Monkey	Aotus azarai	Aotidae	Night monkeys	2.50
+Black howler	Alouatta caraya	Atelidae	New World Monkeys	3.30
+Common Marmoset	Callithrix jacchus	Callitrichidae	New World Monkeys	1.50
+Cottontop Tamarin	Saguinus oedipus	Callitrichidae	New World Monkeys	1.50
+Golden Lion Tamarin	Leontopithecus rosalia	Callitrichidae	New World Monkeys	1.50
+Golden-Headed Lion Tamarin	Leontopithecus chrysomelas	Callitrichidae	New World Monkeys	2.00
+Pygmy Marmoset	Callithrix pygmaea	Callitrichidae	New World Monkeys	1.50
+Squirrel Monkey	Saimiri sciureus	Cebidae	New World Monkeys	3.00
+Crested (black) Macaque	Macaca nigra	Cercopithecidae	Old World monkeys	4.00
+Hamadryas baboon	Papio hamadryas	Cercopithecidae	Old World monkeys	4.30
+Longtail Macaque	Macaca fascicularis	Cercopithecidae	Old World monkeys	5.00
+Pigtail Macaque	Macaca leonina	Cercopithecidae	Old World monkeys	3.00
+Rhesus Indian-derived	Macaca mulatta	Cercopithecidae	Old World monkeys	3.50
+Stumptail Macaque	Macaca arctoides	Cercopithecidae	Old World monkeys	3.25
+Vervet	Chlorocebus pygerythrus	Cercopithecidae	Old World monkeys	3.00
+Fat-tailed Dwarf Lemur	Cheirogaleus medius	Cheirogaleidae	Lemurs	1.50
+Grey Mouse Lemur	Microcebus murinus	Cheirogaleidae	Lemurs	1.50
+Aye-aye	Daubentonia madagascariensis	Daubentoniidae	Lemurs	2.50
+Lesser Bushbaby	Galago senegalensis	Galagidae	Bushbabies	0.80
+Bonobo	Pan paniscus	Hominidae	Great Apes	9.00
+Chimpanzee	Pan troglodytes troglodytes	Hominidae	Great Apes	12.00
+Human	Homo_sapiens	Hominidae	Great Apes	13.00
+Orangutan	Pongo abelii	Hominidae	Great Apes	12.00
+Western Lowland Gorilla	Gorilla gorilla gorilla	Hominidae	Great Apes	10.00
+White-Cheeked Gibbon	Nomascus leucogenys	Hylobatidae	Lesser Apes	6.00
+Coquerel's Lemur	Propithecus coquereli	Indriidae	Lemurs	4.00
+Golden-crowned Sifaka	Propithecus tattersalli	Indriidae	Lemurs	2.50
+Black and White Ruffed Lemur	Varecia variegata variegata	Lemuridae	Lemurs	1.70
+Blue-eyed Black Lemur	Eulemur macaco flavifrons	Lemuridae	Lemurs	2.50
+Collared Lemur	Eulemur fulvus collaris	Lemuridae	Lemurs	1.00
+Common Black Lemur	Eulemur macaco macaco	Lemuridae	Lemurs	2.50
+Common Brown Lemur	Eulemur fulvus fulvus	Lemuridae	Lemurs	1.50
+Crowned lemur	Eulemur coronatus	Lemuridae	Lemurs	1.60
+Eastern Lesser Bamboo Lemur	Hapalemur griseus	Lemuridae	Lemurs	2.50
+Mongoose Lemur	Eulemur mongoz	Lemuridae	Lemurs	3.00
+Northern Giant Mouse Lemur	Mirza zaza	Lemuridae	Lemurs	1.50
+Red-bellied Lemur	Eulemur rubriventer	Lemuridae	Lemurs	2.00
+Red-fronted Lemur	Eulemur fulvus rufus	Lemuridae	Lemurs	2.00
+Red-ruffed Lemur	Varecia rubra	Lemuridae	Lemurs	1.75
+Ringtailed Lemur	Lemur catta	Lemuridae	Lemurs	3.00
+Sanford's Lemur	Eulemur fulvus sanfordi	Lemuridae	Lemurs	2.00
+White-headed Brown Lemur	Eulemur fulvus albifrons	Lemuridae	Lemurs	1.70
+Pygmy Slow Loris	Nycticebus pygmaeus	Lorisidae	Loris	1.30
+Slender Loris	Loris tardigradus	Lorisidae	Loris	1.00
+Slow Loris	Nycticebus bengalensis	Lorisidae	Loris	1.50

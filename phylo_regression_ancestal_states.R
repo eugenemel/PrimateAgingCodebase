@@ -1,0 +1,639 @@
+## (this just globally sets the ggplot2 theme to theme_bw) 
+ggplot2::theme_set(ggplot2::theme_bw(base_size = 16)) 
+
+TREE_ORDER=data.frame(species=paste(primate_tree$tip.label));
+TREE_ORDER$tree_order =1:nrow(TREE_ORDER);
+tmp=SPECIES_SUMMARY %>% left_join(TREE_ORDER); SPECIES_SUMMARY$tree_order=tmp$tree_order;
+
+pdf("plots/sex_maturity_distribution.pdf",width=7.5,height=5.5);
+ggplot(SPECIES_SUMMARY,aes(x=0,reorder(species,tree_order))) + 
+  geom_col(aes(x=maxLifespan,fill='Max'),color='black',width = 0.5)+ 
+  geom_col(aes(x=quantile.50,fill='Median'),color='black',width = 0.5) +
+  geom_col(aes(x=SexMature,fill='Sex Maturity'),color='black',width = 0.5) +
+  scale_color_manual(c("#E81313","#FCCE14", "#1DE213", "#6DB1FF")) + xlab("Age") + ylab("") +
+  theme(legend.position = c(0.85, 0.85),legend.title= element_blank())
+  theme_bw(base_size = 14) 
+dev.off()
+  
+ 
+# #alpha vs beta plot
+# t1 %>% left_join(t3,by="species",suffix=c("beta","alpha")) %>% left_join(SPECIES_SUMMARY) %>% 
+#   ggplot(.,aes(Bayesianalpha,Bayesianbeta,label=species,fill=family_desc)) +
+#   geom_point(aes(size=log(medianBodyWt))) + geom_label_repel(alpha=0.5) +
+#   xlab("Bayes Alpha") + ylab("Bayes Beta")
+# 
+# 
+
+
+# alpha0=ALLFITS %>% filter(model=="LifeTable_brms_phylo" & term=="alpha0") %>% dplyr::select(species,alpha=estimate)
+# beta0=ALLFITS %>% filter(model=="LifeTable_brms_phylo" & term=="beta0") %>% dplyr::select(species,beta=estimate)
+
+alpha0=ALLFITS %>% filter(term=="alpha0") %>% group_by(species) %>% 
+  dplyr::summarise(alpha=mean(estimate,na.rm=TRUE))
+beta0=ALLFITS %>% filter(term=="beta0") %>% group_by(species) %>% 
+  dplyr::summarise(beta=mean(estimate,na.rm=TRUE))
+
+SPECIES_SUMMARY_AB = SPECIES_SUMMARY %>% left_join(alpha0) %>% left_join(beta0) %>% 
+  dplyr::select(species,maxLifespan,quantile.50,medianBodyWt,medianBodyWtFemale, 
+                medianBodyWtMale, alpha,beta)
+
+#SPECIES_SUMMARY_AB =rbind(SPECIES_SUMMARY_AB,c("Human", 90, 78, 70, -8, 0.0863))
+#SPECIES_SUMMARY_AB =rbind(SPECIES_SUMMARY_AB,c("Hamadryas baboon",40, 20, 15, -5.1, 0.143))
+#https://primate.wisc.edu/primate-info-net/pin-factsheets/pin-factsheet-owl-monkey/#:~:text=Average%20male%20A.,1246%20g%20(2.75%20lb).
+SPECIES_SUMMARY_AB$medianBodyWt[ SPECIES_SUMMARY_AB$species == "Owl Monkey"] = 1.2
+SPECIES_SUMMARY_AB$medianBodyWtFemale[ SPECIES_SUMMARY_AB$species == "Owl Monkey"] = 1.2
+SPECIES_SUMMARY_AB$medianBodyWtMale[ SPECIES_SUMMARY_AB$species == "Owl Monkey"] = 1.2
+
+#https://animaldiversity.org/accounts/Alouatta_caraya/
+SPECIES_SUMMARY_AB$medianBodyWt[ SPECIES_SUMMARY_AB$species == "Black howler"] =  4.4;
+SPECIES_SUMMARY_AB$medianBodyWtFemale[ SPECIES_SUMMARY_AB$species == "Black howler"] =  5.5;
+SPECIES_SUMMARY_AB$medianBodyWtMale[ SPECIES_SUMMARY_AB$species == "Black howler"] = 6.7;
+
+SPECIES_SUMMARY_AB$medianBodyWt[ SPECIES_SUMMARY_AB$species == "Cottontop Tamarin"] = 0.404;
+SPECIES_SUMMARY_AB$medianBodyWtFemale[ SPECIES_SUMMARY_AB$species == "Cottontop Tamarin"] = 0.411;
+SPECIES_SUMMARY_AB$medianBodyWtMale[ SPECIES_SUMMARY_AB$species == "Cottontop Tamarin"] = 0.418;
+
+SPECIES_SUMMARY_AB$medianBodyWtMale[ SPECIES_SUMMARY_AB$species == "Squirrel Monkey"] = 0.79;
+SPECIES_SUMMARY_AB$medianBodyWtFemale[ SPECIES_SUMMARY_AB$species == "Squirrel Monkey"] = 0.68;
+SPECIES_SUMMARY_AB$medianBodyWtMale[ SPECIES_SUMMARY_AB$species == "Squirrel Monkey"] = 0.899;
+
+SPECIES_SUMMARY_AB$beta = as.double( SPECIES_SUMMARY_AB$beta)
+SPECIES_SUMMARY_AB$alpha = as.double( SPECIES_SUMMARY_AB$alpha)
+SPECIES_SUMMARY_AB$medianBodyWt = as.double( SPECIES_SUMMARY_AB$medianBodyWt)
+SPECIES_SUMMARY_AB =  SPECIES_SUMMARY_AB %>% filter( !is.na(quantile.50) ) 
+
+#merge summary statistics
+X =common_sci_names %>%
+ dplyr::left_join(SPECIES_SUMMARY_AB,by=c("common_name" = "species"))
+
+rownames(X) = X$common_name
+X$quantile.50  = as.numeric(X$quantile.50)
+X$maxLifespan = as.numeric(X$maxLifespan)
+X$Log2BodyWt=log2(X$medianBodyWt)
+X$Log2BodyWtFemale=log2(X$medianBodyWtFemale)
+X$Log2BodyWtMale=log2(X$medianBodyWtMale)
+
+X=X[,c("maxLifespan","quantile.50","Log2BodyWt","Log2BodyWtFemale","Log2BodyWtMale","alpha","beta","SexMature")]
+X=X[!is.na(X$quantile.50),] 
+
+primate_tree_subset = keep.tip(primate_tree,tip = rownames(X))
+primate_tree_subset$node.label = sprintf("%dn",seq(1,length(primate_tree_subset$node.label))+10)
+
+#primate_tree_subset$root.edge=0
+cor.brown = corBrownian(1,phy = primate_tree_subset,form=~species)
+cor.pagel = corPagel(0.6, phy= primate_tree_subset,form=~species)
+
+XIMP=X;
+XIMP$mrdr=log(2)/XIMP$beta
+XIMP$species = rownames(XIMP)
+
+## export to latex
+xtable::xtable(XIMP[,c("SexMature","Log2BodyWt","alpha","beta","mrdr","quantile.50","maxLifespan")])
+
+#Phylogentic signal table
+phylosig(primate_tree_subset,XIMP$Log2BodyWt, method="K",test=TRUE,nsim=10000)
+phylosig(primate_tree_subset,XIMP$maxLifespan, method="K",test=TRUE,nsim=10000)
+phylosig(primate_tree_subset,XIMP$quantile.50, method="K",test=TRUE,nsim=10000)
+phylosig(primate_tree_subset,XIMP$alpha, method="K",test=TRUE,nsim=10000)
+phylosig(primate_tree_subset,XIMP$mrdr,method="K",test=TRUE,nsim=10000)
+phylosig(primate_tree_subset,XIMP$beta,method="K",test=TRUE,nsim=10000)
+
+phylosig(primate_tree_subset,XIMP$Log2BodyWt, method="lambda",test=TRUE)
+phylosig(primate_tree_subset,XIMP$maxLifespan, method="lambda",test=TRUE)
+phylosig(primate_tree_subset,XIMP$alpha, method="lambda",test=TRUE)
+phylosig(primate_tree_subset,XIMP$quantile.50, method="lambda",test=TRUE)
+phylosig(primate_tree_subset,XIMP$mrdr,method="lambda",test=TRUE)
+phylosig(primate_tree_subset,XIMP$beta, method="lambda",test=TRUE)
+
+
+### plot tree
+par(mfrow=c(1,1))
+COLORS=c("#E81313", "#FCCE14", "gray", "#6DB1FF", "#1071E5");
+Lab.palette = colorRampPalette(RColorBrewer::brewer.pal(10,"Spectral"))
+Lab.palette_inverse = colorRampPalette(rev(RColorBrewer::brewer.pal(10,"Spectral")))
+#Lab.palette <- colorRampPalette(COLORS, space = "Lab")
+#Lab.palette_inverse <- colorRampPalette(rev(COLORS), space = "Lab")
+
+#### Ancestral State Reconstruction..  mcmc
+pdf("plots/primate_tree_out.pdf",width=7.5,height=9.5);
+par(mfrow=c(1,1))
+for( featureName in c("maxLifespan","quantile.50", "Log2BodyWt","alpha","beta","mrdr")) { 
+  roundDigits=2
+  selectedPallete=Lab.palette
+  if (featureName == "quantile.50") { roundDigits=0; } 
+  if (featureName == "beta") { selectedPallete=Lab.palette_inverse; } 
+  if (featureName == "alpha") { selectedPallete=Lab.palette_inverse; }
+  
+  Xfeature=XIMP[,featureName]; names(Xfeature)=rownames(XIMP)
+  limits=as.numeric(quantile(Xfeature,c(0.05,0.95)))
+  corfunc = corBrownian(1,phy = primate_tree_subset)
+  acefit=ace(Xfeature,primate_tree_subset,corStruct = corfunc , method="GLS")
+  
+  cmapout=contMap(primate_tree_subset,
+                  Xfeature,
+                  plot=FALSE,
+                  lim=limits,lwd=6,
+                  node.numbers=TRUE,
+                  outline=TRUE,
+                  leg.txt=featureName,
+                  fsize=0.9)
+  
+  plot(setMap(cmapout,colors=selectedPallete(100)),lwd=6,leg.txt=featureName); 
+  #plotBranchbyTrait(primate_tree_subset,XIMP[,featureName], lim=limits,palette=Lab.palette, edge.width=3,no.margin=F)
+  tiplabels(round(Xfeature,roundDigits),adj = c(+0.8,+0.5),bg="white",cex=0.5)
+  nodelabels(round(acefit$ace,roundDigits),thermo = acefit$lik.anc, cex=0.5,bg="white") 
+}
+dev.off()
+
+
+if(1) {
+  trait=XIMP[,'SexMature']; names(trait)=rownames(XIMP)
+  mcmc.sexmature =anc.Bayes(primate_tree_subset,trait,ngen=200000)
+  mcmcfit.mean.sexmature=apply(mcmc.sexmature$mcmc,2,mean)[3:(primate_tree_subset$Nnode+2)]
+  mcmcfit.mean.sexmature_sd=apply(mcmc.sexmature$mcmc,2,sd)[3:(primate_tree_subset$Nnode+2)]
+  
+  trait=XIMP[,'quantile.50']; names(trait)=rownames(XIMP)
+  mcmc.q50 =anc.Bayes(primate_tree_subset,trait,ngen=200000)
+  mcmcfit.mean.q50=apply(mcmc.q50$mcmc,2,mean)[3:(primate_tree_subset$Nnode+2)]
+  mcmcfit.mean.q50_sd=apply(mcmc.q50$mcmc,2,sd)[3:(primate_tree_subset$Nnode+2)]
+  
+  trait=XIMP[,'mrdr']; names(trait)=rownames(XIMP)
+  mcmc.mrdr =anc.Bayes(primate_tree_subset,trait,ngen=200000)
+  mcmcfit.mean.mrdr=apply(mcmc.mrdr$mcmc,2,mean)[3:(primate_tree_subset$Nnode+2)]
+  mcmcfit.mean.mrdr_sd=apply(mcmc.mrdr$mcmc,2,sd)[3:(primate_tree_subset$Nnode+2)]
+  
+  trait=XIMP[,'alpha']; names(trait)=rownames(XIMP)
+  mcmc.alpha =anc.Bayes(primate_tree_subset,trait,ngen=200000)
+  mcmcfit.mean.alpha=apply(mcmc.alpha$mcmc,2,mean)[3:(primate_tree_subset$Nnode+2)]
+  mcmcfit.mean.alpha_sd=apply(mcmc.alpha$mcmc,2,sd)[3:(primate_tree_subset$Nnode+2)]
+  
+  trait=XIMP[,'beta']; names(trait)=rownames(XIMP)
+  mcmc.beta =anc.Bayes(primate_tree_subset,trait,ngen=200000)
+  mcmcfit.mean.beta=apply(mcmc.beta$mcmc,2,mean)[3:(primate_tree_subset$Nnode+2)]
+  mcmcfit.mean.beta_sd=apply(mcmc.beta$mcmc,2,sd)[3:(primate_tree_subset$Nnode+2)]
+  
+  trait=XIMP[,'maxLifespan']; names(trait)=rownames(XIMP)
+  mcmc.maxLifespan =anc.Bayes(primate_tree_subset,trait,ngen=200000)
+  mcmcfit.mean.maxLifespan=apply(mcmc.maxLifespan$mcmc,2,mean)[3:(primate_tree_subset$Nnode+2)]
+  mcmcfit.mean.maxLifespan_sd=apply(mcmc.maxLifespan$mcmc,2,sd)[3:(primate_tree_subset$Nnode+2)]
+  
+  projQ50=qgompertz(0.5,shape = mcmcfit.mean.beta,rate = exp(mcmcfit.mean.alpha))
+  #plot(projQ50,mcmcfit.mean.q50-mcmcfit.mean.sexmature); abline(0,1)
+  
+  data.frame(
+    node=primate_tree_subset$node.label,
+    alpha=mcmcfit.mean.alpha,
+    alpha_sd=mcmcfit.mean.alpha_sd,
+    beta=mcmcfit.mean.beta,
+    beta_stddev=mcmcfit.mean.beta_sd,
+    mrdr=mcmcfit.mean.mrdr,
+    mrdr_stddev=mcmcfit.mean.mrdr_sd,
+    medianLifespan=mcmcfit.mean.q50, 
+    medianLifespan_sd=mcmcfit.mean.q50_sd,
+    maxLifespan=mcmcfit.mean.maxLifespan,
+    maxLifAespan_stddev=mcmcfit.mean.maxLifespan_sd) %>% write.table("outputs/ancestral_states.tsv",sep="\t")
+  
+}
+
+if (1) {
+pdf("plots/ancestral_states_recon.pdf",width=12,height=7.5);
+par(mfrow=c(1,2))
+# trait=XIMP[,'beta']; names(trait)=rownames(XIMP)
+# limits=as.numeric(quantile(trait,c(0.05,0.95)))
+# cmapout=contMap(primate_tree_subset, trait,      lims=limits,plot=FALSE)
+# rounding=1
+# nodelabel=paste0(round(mcmcfit.mean.beta,rounding))
+# 
+trait=XIMP[,'mrdr']; names(trait)=rownames(XIMP)
+limits=as.numeric(quantile(trait,c(0.05,0.95)))
+cmapout=contMap(primate_tree_subset, trait, lims=limits,plot=FALSE)
+nodelabel=paste0(round(mcmcfit.mean.mrdr,1))
+rounding=1
+
+plot(setMap(cmapout,colors=Lab.palette(100)), lwd=6, sig=1, node.numbers=TRUE, outline=TRUE, font=1, offset=1.5, cex=0.8, ftype="reg",
+     fsize=0.9, edge.width=8, leg.txt="MRDT (yrs.)"); 
+
+#nodelabel=paste0(round(log(2)/mcmcfit.mean.beta,1))
+nodelabels(nodelabel,cex=0.7,bg="#FFFFFF",frame="rect") 
+tiplabels(round(trait,rounding),adj = c(-0.4,+0.5),bg="#FFFFFF00",cex=0.7,frame="rect")
+
+trait=XIMP[,'alpha']; names(trait)=rownames(XIMP)
+limits=as.numeric(quantile(trait,c(0.05,0.95)))
+cmapout=contMap(primate_tree_subset, trait,     lims=limits, plot=FALSE)
+
+plot(setMap(cmapout,colors=Lab.palette_inverse(100)), lwd=6, sig=1, node.numbers=TRUE, outline=TRUE, font=1, offset=2, cex=0.8, ftype="reg", fsize=0.9,
+     edge.width=8, leg.txt="Baseline Hazard"); 
+
+nodelabel=paste0(round(mcmcfit.mean.alpha,1))
+nodelabels(nodelabel,cex=0.7,bg="#FFFFFF",frame="rect") 
+tiplabels(round(trait,1),adj = c(-0.4,+0.5),bg="#FFFFFF00",cex=0.7,frame="rect")
+dev.off()
+}
+
+
+##### 
+
+bootStrapLM = function(formula_str, df, nboot=100,ncoef=2) { 
+      COEF=matrix(nrow=nboot,ncol=ncoef);
+      for(i in 1:nboot) { 
+          dfsubset = df %>% dplyr::sample_frac(0.7);
+          lmfit = lm(as.formula(formula_str),dfsubset);
+          COEF[i,]=coef(lmfit)
+      }
+      return(COEF)
+}
+
+bootStrapGLS = function(formula_str, df, nboot=100,ncoef=2) { 
+  COEF=matrix(nrow=nboot,ncol=ncoef);
+  for(i in 1:nboot) { 
+    dfsubset = df %>% dplyr::sample_frac(0.8);
+    tmptree = keep.tip(primate_tree_subset,tip = rownames(dfsubset))
+    dfsubset$species = rownames(dfsubset)
+    corMatrix = corBrownian(1,phy = tmptree,form=~species)
+    lmfit = gls(as.formula(formula_str),dfsubset,correlation = corMatrix);
+    COEF[i,]=coef(lmfit)
+  }
+  return(COEF)
+}
+
+bootStrapPhylom = function(formula_str, df, nboot=100,ncoef=2) { 
+  COEF=matrix(nrow=nboot,ncol=ncoef);
+  for(i in 1:nboot) { 
+    dfsubset = df %>% dplyr::sample_frac(0.8);
+    tmptree = keep.tip(primate_tree_subset,tip = rownames(dfsubset))
+    dfsubset$species = rownames(dfsubset)
+    pfit=phylolm::phylolm(formula_str, data = dfsubset,  phy=tmptree, model="BM");
+    COEF[i,]=coef(pfit)
+  }
+  return(COEF)
+}
+
+###
+### Model Prediction Evaluation
+###
+
+if(TRUE) { 
+  #calcR2 = function(yres,y) { 1-sum(yres^2)/sum((y-mean(y))^2); }
+  calcR2 = function(yres,y,dfr=37,dft=39) { yres=sum(yres^2); ytol=sum((y-mean(y))^2); 1-((yres/dfr)/(ytol/dft))}
+  
+  XIMP$maxAdultLifespan=XIMP$maxLifespan-XIMP$SexMature
+  XIMP$medAdultLifespan=XIMP$quantile.50-XIMP$SexMature
+  
+  primate_tree_subset$root.edge=0
+  pdf("plots/model_evaluation.pdf",width=10,height=5);
+  
+  BOOT=100
+  par(mfrow=c(1,2), cex.main=1.1, cex=1.0, cex.lab=1.05)
+  
+  XIMP$predQ50=qgompertz(0.99,shape = XIMP$beta,rate = exp(XIMP$alpha))
+  plot(predQ50~ maxAdultLifespan,data=XIMP, pch=19,
+       main="A. Maximum Lifespan", 
+       xlab="Maximum Adult Lifespan", 
+       ylab="Predicted Max. Adult Lifespan")
+  abline(c(0,1),lty=2,lwd=3);
+  r2=calcR2(XIMP$predQ50-XIMP$maxAdultLifespan,XIMP$maxAdultLifespan)
+  legend("bottomright",latex2exp::TeX(sprintf("$R^2$=%3.2f",round(r2,2))))
+ 
+  XIMP$predQ50=qgompertz(0.5,shape = XIMP$beta,rate = exp(XIMP$alpha))
+  plot(predQ50~ medAdultLifespan,data=XIMP, pch=19,
+       main="B. Median Lifespan", 
+       xlab="Median Adult Lifespan", 
+       ylab="Predicted Median Adult Lifespan")
+  abline(c(0,1),lty=2,lwd=3);
+  r2=calcR2(XIMP$predQ50-XIMP$medAdultLifespan,XIMP$medAdultLifespan)
+  legend("bottomright",latex2exp::TeX(sprintf("$R^2$=%3.2f",round(r2,2))))
+  
+  dev.off()
+}
+
+if(1) {
+  ##--------
+  pdf("plots/fixed_alpha_beta.pdf",width=10,height=10);
+  par(mfrow=c(2,2), cex.main=1.1, cex=1.0, cex.lab=1.05)
+
+  ##--------
+  XIMP$predQ50=qgompertz(0.5,shape = 0.13,rate = exp(XIMP$alpha))
+  calcR2(XIMP$predQ50,XIMP$maxAdultLifespan)
+  plot(predQ50~ medAdultLifespan,data=XIMP, pch=19,
+       main=expression(paste("A. Median Lifespan: Fixed ",beta,"=0.13")), 
+       xlab="Median Adult Lifespan", 
+       ylab="Predicted Median Adult Lifespan")
+  abline(c(0,1),lty=2,lwd=3);
+  r2=calcR2(XIMP$predQ50-XIMP$medAdultLifespan,XIMP$medAdultLifespan)
+  legend("bottomright",latex2exp::TeX(sprintf("$R^2$=%3.2f",round(r2,2))))
+  
+  
+  XIMP$predQ50=qgompertz(0.99,shape = 0.13,rate = exp(XIMP$alpha))
+  calcR2(XIMP$predQ50,XIMP$maxAdultLifespan)
+  plot(predQ50~ maxAdultLifespan,data=XIMP, pch=19,
+       main=expression(paste("B. Max Lifespan: Fixed ",beta,"=0.13")), 
+       xlab="Maximum Adult Lifespan", 
+       ylab="Predicted Maximum Adult Lifespan")
+  abline(c(0,1),lty=2,lwd=3);
+  r2=calcR2(XIMP$predQ50-XIMP$maxAdultLifespan,XIMP$maxAdultLifespan)
+  legend("bottomright",latex2exp::TeX(sprintf("$R^2$=%3.2f",round(r2,2))))
+  
+  
+  
+  XIMP$predQ50=qgompertz(0.5,shape = XIMP$beta,rate = exp(-4.3))
+  plot(predQ50~medAdultLifespan,data=XIMP, pch=19,
+       main=expression(paste("C. Median Lifespan: Fixed ",ln(alpha),"=-4.3")), 
+       xlab="Median Adult Lifespan",
+       ylab="Predicted Median Adult Lifespan")
+  abline(c(0,1),lty=2,lwd=3);
+  r2=calcR2(XIMP$predQ50-XIMP$medAdultLifespan,XIMP$medAdultLifespan)
+  legend("bottomright",latex2exp::TeX(sprintf("$R^2$=%3.2f",round(r2,2))))
+  
+  XIMP$predQ50=qgompertz(0.99,shape = XIMP$beta,rate = exp(-4.3))
+  plot(predQ50~maxAdultLifespan,data=XIMP, pch=19,
+       main=expression(paste("D. Max Lifespan: Fixed ",ln(alpha),"=-4.3")), 
+       xlab="Maximum Adult Lifespan",
+       ylab="Predicted Maximum Adult Lifespan")
+  abline(c(0,1),lty=2,lwd=3);
+  r2=calcR2(XIMP$predQ50-XIMP$maxAdultLifespan,XIMP$maxAdultLifespan)
+  legend("bottomright",latex2exp::TeX(sprintf("$R^2$=%3.2f",round(r2,2))))
+
+  dev.off()
+}
+
+### Alpha Beta Correlation
+pfitBeta=phylolm::phylolm(beta ~ alpha, 
+                          data = XIMP, 
+                          phy=primate_tree_subset, 
+                          model="BM",
+                          boot=1000)
+summary(pfitBeta)
+
+
+if (1)  {
+  pdf("plots/aging_parameters_correlation.pdf",width=10,height=5);
+  par(mfrow=c(1,2),cex.lab=1.05)
+   
+  BOOT=100
+  formula_str=as.formula("beta~alpha")
+  plot(formula_str,data=XIMP,pch=19,  ylab="Aging Rate",
+       main="Unadjusted Correlation",  xlab="Baseline Hazard ln(alpha)")
+
+  lmfit=lm(formula_str, data = XIMP); summary(lmfit)
+  lmfit$bootstrap=bootStrapLM("beta~alpha",XIMP,nboot = BOOT)
+  for(i in 1:BOOT) { abline(coef = lmfit$bootstrap[i,1:2], col='#ff1f3d05',lwd=10) }
+  abline(coef = colMeans(lmfit$bootstrap),lwd=3,col='#ff1f3d');
+  lmfit=lm(formula_str, data = XIMP);  abline(coef = coef(lmfit),lwd=1,lty=2)
+  tmp=summary(lmfit); 
+  print(summary(lmfit))
+  lmr2=tmp$r.squared
+  addTextLabels(XIMP[,"alpha"], XIMP[,"beta"], rownames(XIMP),cex.label=0.7,col.label="black"); 
+  legend("bottomright",latex2exp::TeX(sprintf('$R^2$=%3.2f',round(lmr2,2))), border=0)
+
+  plot(formula_str,data=XIMP,pch=19,  ylab="Aging Rate",  
+       main="Phylogentic Correlation",  xlab="Baseline Hazard ln(alpha)")
+  
+  pfit=phylolm::phylolm(formula_str, data = XIMP,phy=primate_tree_subset, model="BM",boot=BOOT)
+  for(i in 1:BOOT) { abline(coef = pfit$bootstrap[i,1:2], col='#3D6FB605',lwd=10) }
+  abline(a=pfit$bootmean[1], b=pfit$bootmean[2], lwd=5,col='#3D6FB6'); 
+  points(formula_str,data=XIMP,col='black')
+  addTextLabels(XIMP[,"alpha"], XIMP[,"beta"], rownames(XIMP),cex.label=0.7,col.label="black"); 
+  r2=pfit$r.squared;
+  
+  # glsfit=nlme::gls(formula_str, correlation = cor.brown, data = XIMP); summary(glsfit)
+  # glsfit$bootstrap=bootStrapGLS("beta~alpha",XIMP,nboot = BOOT)
+  # for(i in 1:BOOT) { abline(coef = glsfit$bootstrap[i,1:2], col='#3D6FB605',lwd=10) }
+  # abline(coef = colMeans(glsfit$bootstrap),lwd=3,col='#3D6FB6');
+  # ypred=as.double(predict(glsfit))
+  # glsr2=calcR2(ypred-XIMP[,"beta"], XIMP[,"beta"])
+  # print(summary(glsfit))
+  # 
+  # text(XIMP[,"alpha"], XIMP[,"beta"], rownames(XIMP),adj = c(0,-0.7),cex=0.7); 
+   legend("bottomright",latex2exp::TeX(sprintf('phy $R^2$=%3.2f',round(r2,2))), border=0)
+   dev.off()
+}
+
+
+doPhyloRegression = function(yvar, xvar, ylab,xlab, title) {
+  formula_str=as.formula(paste0(yvar,"~",xvar)); #formula
+  plot(formula_str,data=XIMP,pch=19, xlab=xlab, ylab=ylab, main=title)
+  
+  # glsfit=nlme::gls(formula_str, correlation = cor.brown, data = XIMP); 
+  # glsfit$bootstrap=bootStrapGLS(formula_str,XIMP,nboot = BOOT,ncoef=2)
+  # for(i in 1:BOOT) { abline(coef = glsfit$bootstrap[i,1:2], col='#3D6FB605',lwd=10) }
+  # abline(coef = colMeans(glsfit$bootstrap),lwd=3,col='#3D6FB6');
+  # print(summary(glsfit))
+  # ypred=as.double(predict(glsfit))
+  # glsr2=calcR2(ypred-XIMP[,yvar],XIMP[,yvar])
+  # 
+  pfit=phylolm::phylolm(formula_str, data = XIMP,phy=primate_tree_subset, model="BM")
+  pfit$bootstrap=bootStrapPhylom(formula_str,XIMP,nboot = BOOT)
+  for(i in 1:BOOT) { abline(coef = pfit$bootstrap[i,1:2], col='#3D6FB605',lwd=10) }
+  points(formula_str,data=XIMP,col="black", pch=19)
+  abline(a = pfit$bootmean[1], b=pfit$bootmean[2], lwd=5,col='#3D6FB6');
+  print(summary(pfit))
+  #r2=calcR2(pfit$res,XIMP[,yvar])
+  r2=pfit$r.squared;
+
+  lmfit=lm(formula_str, data = XIMP);  
+  lmfit$bootstrap=bootStrapLM(formula_str,XIMP,nboot = BOOT)
+  for(i in 1:BOOT) { abline(coef = lmfit$bootstrap[i,1:2], col='#ff1f3d05',lwd=10) }
+  abline(coef = colMeans(lmfit$bootstrap),lwd=3,col='#ff1f3d',lty=2);
+  tmp=summary(lmfit); 
+  #print(summary(lmfit))
+  lmr2=tmp$r.squared
+  
+  #text(XIMP[,xvar], XIMP[,yvar], rownames(XIMP),adj = c(0,-0.7),cex=0.7); 
+  addTextLabels(XIMP[,xvar], XIMP[,yvar], rownames(XIMP),cex.label=0.7,col.label="black"); 
+  legend("bottomright",latex2exp::TeX(sprintf('$R^2$=%3.2f $\\phyR^2$=%3.2f',
+                                              round(lmr2,2),round(r2,2))), border=0)
+}
+
+
+
+
+
+
+### BodyWeight Correlation
+if (1) {
+  pdf("plots/body_weight_correlation.pdf",width=10,height=10);
+  par(mfrow=c(2,2),cex.lab=1.2,cex.axis=1.3,cex.main=1.4)
+  doPhyloRegression("quantile.50","Log2BodyWt",ylab="Median Lifespan yrs.", xlab="Log2(BodyWeight) kg.", title="Median Lifespan vs Body Weight")
+  doPhyloRegression("maxLifespan","Log2BodyWt",ylab="Maximum Lifespan yrs.", xlab="Log2(BodyWeight) kg.", title="Maximum Lifespan vs Body Weight")
+  doPhyloRegression("alpha","Log2BodyWt", ylab="Baseline Hazard ln(alpha)", xlab="Log2(BodyWeight) kg.", title="Baseline Hazard vs Body Weight" )
+  doPhyloRegression("beta","Log2BodyWt", ylab="Aging Rate", xlab="Log2(BodyWeight) kg.", title="Aging Rate vs Body Weight" )
+ dev.off()
+}
+
+if(0) {
+  library("brms")
+#Ypred=predict(model_phylo) 
+#summary(lm(XIMP$mrdr ~ Ypred[,1]));
+
+A <- ape::vcv.phylo(primate_tree_subset);
+brmsdata=XIMP; brmsdata$species=row.names(XIMP)
+
+priors = c(
+  # prior(normal(0,10), "b"),
+  # prior(normal(0,50), "Intercept"),
+  # prior(student_t(3,0,20), "sd"),
+  # prior(student_t(3,0,20), "sigma")
+);
+
+my_line_args=aes(color="black",alpha=0.5,fill="#1071E501");
+my_point_args=aes(size=3);
+            
+model_phylo <- brm( quantile.50 ~ Log2BodyWt + (1| gr(species,cov=A)),  data = brmsdata, prior=priors,
+                    family = gaussian(),  data2 = list(A = A), sample_prior = FALSE, cores = 2)
+  p0=plot(conditional_effects(model_phylo), points = TRUE,plot=FALSE,line_args=my_line_args,point_args=my_point_args)
+  Ypred=predict(model_phylo,re_formula = NA) 
+  r2=cor(Ypred[,"Estimate"],model_phylo$data[,1]);
+  p0 = p0[[1]]+xlab("Ln Body Weight") + 
+    ylab("Median Lifespan") +
+    labs(subtitle=paste("R2=",round(r2,2)))
+  print(p0)
+  
+  model_phylo <- brm( Log2BodyWt ~ alpha+mrdr + (1| gr(species,cov=A)),  data = brmsdata, prior=priors,
+                      family = gaussian(),  
+                      data2 = list(A = A), 
+                      sample_prior = FALSE, cores = 2)
+  p0=plot(conditional_effects(model_phylo), points = TRUE,plot=FALSE,line_args=my_line_args,point_args=my_point_args)
+  r2=cor(Ypred[,"Estimate"],model_phylo$data[,1]);
+  p0 = p0[[1]]+xlab("Ln Body Weight") + ylab("Median Lifespan") +labs(subtitle=paste("R2=",round(r2,2)))
+  print(p0)
+  
+  model_phylo <- brm( alpha ~ beta + (1| gr(species,cov=A)),  data = brmsdata, prior=priors,
+                      family = gaussian(),  data2 = list(A = A), sample_prior = FALSE, cores = 4,
+                      control = list(adapt_delta = 0.9))
+                      
+  model_no_phylo <- brm( alpha ~ beta,  data = brmsdata, prior=priors,
+                                        family = gaussian(), 
+                                        sample_prior = FALSE, cores = 4,
+                                        control = list(adapt_delta = 0.9))
+
+  p0=plot(conditional_effects(model_no_phylo), points = TRUE,plot=FALSE,line_args=my_line_args,point_args=my_point_args)
+  
+  p0=plot(conditional_effects(model_phylo), points = TRUE,plot=FALSE,line_args=my_line_args,point_args=my_point_args)
+  Ypred=predict(model_phylo,re_formula = NA) 
+  r2=cor(Ypred[,"Estimate"],model_phylo$data[,1]);
+  p0 = p0[[1]]+xlab("Ln Body Weight") + ylab("Median Lifespan") +labs(subtitle=paste("R2=",round(r2,2)))
+  print(p0)
+
+model_phylo <- brm( alpha ~ Log2BodyWt + (1| gr(species,cov=A)),  data = XIMP, prior=priors,
+                    family = gaussian(),  data2 = list(A = A), sample_prior = FALSE, cores = 2)
+  p1=plot(conditional_effects(model_phylo), points = TRUE,plot=FALSE,line_args=my_line_args,point_args=my_point_args) 
+  Ypred=predict(model_phylo,re_formula = NA) 
+  r2=cor(Ypred[,"Estimate"],model_phylo$data[,1]);
+  p1 = p1[[1]]+xlab("Ln Body Weight") + ylab("Baseline Hazard") +labs(subtitle=paste("R2=",round(r2,2)))
+
+model_phylo <- brm( mrdr ~ Log2BodyWt + (1| gr(species,cov=A)),  data = XIMP, prior=priors,
+                    family = gaussian(),  data2 = list(A = A), sample_prior = FALSE, cores = 2)
+  p2=plot(conditional_effects(model_phylo), points = TRUE,plot=FALSE,line_args=my_line_args,point_args=my_point_args)
+  Ypred=predict(model_phylo,re_formula = NA) 
+  r2=cor(Ypred[,"Estimate"],model_phylo$data[,1]);
+  p2 = p2[[1]]+xlab("Ln Body Weight") + ylab("Mortality Doubling Rate") +labs(subtitle=paste("R2=",round(r2,2)))
+  
+
+model_phylo <- brm( maxLifespan ~ alpha + (1| gr(species,cov=A)),  data = XIMP, prior=priors,
+                    family = gaussian(),  data2 = list(A = A), sample_prior = FALSE, cores = 2)
+  p3=plot(conditional_effects(model_phylo), points = TRUE,plot=FALSE,line_args=my_line_args,point_args=my_point_args)
+  Ypred=predict(model_phylo,re_formula = NA) 
+  r2=cor(Ypred[,"Estimate"],model_phylo$data[,1]);
+  p3=p3[[1]]+xlab("Baseline Hazard") + ylab("Max Lifespan")+labs(subtitle=paste("R2=",round(r2,2)))
+
+model_phylo <- brm( maxLifespan ~ mrdr + (1| gr(species,cov=A)),  data = XIMP, prior=priors,
+                      family = gaussian(),  data2 = list(A = A), sample_prior = FALSE, cores = 2)
+  p4=plot(conditional_effects(model_phylo), points = TRUE,plot=FALSE,line_args=my_line_args,point_args=my_point_args)
+  Ypred=predict(model_phylo,re_formula = NA) 
+  r2=cor(Ypred[,"Estimate"],model_phylo$data[,1]);
+  p4=p4[[1]]+xlab("mrdr") + ylab("Max Lifespan") +labs(subtitle=paste("R2=",round(r2,2)))
+  
+model_phylo <- brm( beta ~ alpha + (1| gr(species,cov=A)),  
+                    data = XIMP, prior=priors,
+                    family = gaussian(),  
+                    data2 = list(A = A), 
+                    sample_prior = FALSE, cores = 2)
+
+  p5=plot(conditional_effects(model_phylo), points = TRUE,plot=FALSE,line_args=my_line_args,point_args=my_point_args)
+  Ypred=predict(model_phylo,re_formula = NA) 
+  r2=cor(Ypred[,"Estimate"],model_phylo$data[,1]);
+  p5=p5[[1]]+xlab("Baseline Hazard") + ylab("Mortality Doubling Rate") +labs(subtitle=paste("R2=",round(r2,2)))
+  
+pdf("plots/body_weight_correlations.pdf",width=11,height=11);
+print(ggarrange(plotlist=list(p0,p1,p2,p5),  nrow=2,ncol=2))
+dev.off();
+# hyp <- "sd_species__Intercept^2 / (sd_species__Intercept^2 + sigma^2) = 0"
+# out=hypothesis(model_phylo, hyp, class = NULL)
+# plot(out)
+}
+
+
+
+### CORRELAGTIONS
+pfitBeta=phylolm::phylolm(beta ~ alpha, 
+                          data = XIMP, 
+                          phy=primate_tree_subset, 
+                          model="BM")
+summary(pfitBeta)
+
+pfitMRDR=phylolm::phylolm(mrdr ~ Log2BodyWt, data = XIMP, phy=primate_tree_subset, model="BM")
+glsfit=nlme::gls(mrdr ~ Log2BodyWt, correlation = cor.brown, data = XIMP); summary(glsfit)
+summary(pfitMRDR)
+
+pfitAlpha=phylolm::phylolm(alpha ~ Log2BodyWt, data = XIMP, phy=primate_tree_subset, model="BM")
+glsfit=nlme::gls(alpha ~ Log2BodyWt, correlation = cor.brown, data = XIMP); summary(glsfit)
+summary(pfitAlpha)
+#lmfit=lm(alpha ~ Log2BodyWt, data = XIMP)# summary(lmfit)
+
+XIMP$predQ50=flexsurv::qgompertz(0.99,shape = predict(pfitBeta),rate = exp(predict(pfitAlpha)))
+plot(XIMP$maxLifespan,XIMP$predQ50,pch=19)
+summary(lm(XIMP$maxLifespan ~ XIMP$predQ50))
+
+#pfitBetaBW=phylolm::phylolm(alpha ~ Log2BodyWt+mrdr, data = XIMP,phy=primate_tree_subset,  model="BM",full.matrix = TRUE)
+#summary(pfitBetaBW)
+#pfitBetaBW=phylolm::phylolm(Log2BodyWt ~ alpha + beta, data = XIMP,phy=primate_tree_subset,  model="BM",full.matrix = TRUE)
+#summary(pfitBetaBW)
+
+
+if(0) {
+XIMP$predL50=qgomp(0.5,XIMP$beta,exp(XIMP$alpha))
+XIMP$predL95=qgomp(0.95,XIMP$beta,exp(XIMP$alpha))
+XIMP$predL50Alpha=qgomp(0.5,0.1,exp(XIMP$alpha))
+XIMP$predL50Beta=qgomp(0.5,XIMP$beta,exp(-4))
+XIMP$predL95Alpha=qgomp(0.95,0.1,exp(XIMP$alpha))
+XIMP$predL95Beta=qgomp(0.95,XIMP$beta,exp(-4))
+
+
+model_phylo <- brm( quantile.50~ predL50Alpha + (1| gr(species,cov=A)),  data = XIMP, prior=priors,
+                    family = gaussian(),  data2 = list(A = A), sample_prior = FALSE, cores = 2)
+
+p6=plot(conditional_effects(model_phylo), points = TRUE,plot=FALSE,line_args=my_line_args,point_args=my_point_args)
+Ypred=predict(model_phylo,re_formula = NA) 
+r2=cor(Ypred[,"Estimate"],model_phylo$data[,1]);
+p6=p6[[1]]+xlab("predL50Alpha") + ylab("quantile.50") +labs(subtitle=paste("R2=",round(r2,2)))
+p6
+
+model_phylo <- brm( quantile.50 ~ predL50Beta + (1| gr(species,cov=A)),  data = XIMP, prior=priors,
+                    family = gaussian(),  data2 = list(A = A), sample_prior = FALSE, cores = 2)
+
+p7=plot(conditional_effects(model_phylo), points = TRUE,plot=FALSE,line_args=my_line_args,point_args=my_point_args)
+Ypred=predict(model_phylo,re_formula = NA) 
+r2=cor(Ypred[,"Estimate"],model_phylo$data[,1]);
+p7=p7[[1]]+xlab("predL50Beta") + ylab("quantile.50") +labs(subtitle=paste("R2=",round(r2,2)))
+
+model_phylo <- brm( maxLifespan ~ predL95 + (1| gr(species,cov=A)),  data = XIMP, prior=priors,
+                    family = gaussian(),  data2 = list(A = A), sample_prior = FALSE, cores = 2)
+
+p8=plot(conditional_effects(model_phylo), points = TRUE,plot=FALSE,line_args=my_line_args,point_args=my_point_args)
+Ypred=predict(model_phylo,re_formula = NA) 
+r2=cor(Ypred[,"Estimate"],model_phylo$data[,1]);
+p8=p8[[1]]+xlab("predL95") + ylab("maxLifespan") +labs(subtitle=paste("R2=",round(r2,2)))
+
+model_phylo <- brm( quantile.50 ~ predL50 + (1| gr(species,cov=A)),  data = XIMP, prior=priors,
+                    family = gaussian(),  data2 = list(A = A), sample_prior = FALSE, cores = 2)
+
+p9=plot(conditional_effects(model_phylo), points = TRUE,plot=FALSE,line_args=my_line_args,point_args=my_point_args)
+Ypred=predict(model_phylo,re_formula = NA) 
+r2=cor(Ypred[,"Estimate"],model_phylo$data[,1]);
+p9=p9[[1]]+xlab("predL50") + ylab("quantile.50") +labs(subtitle=paste("R2=",round(r2,2)))
+
+
+pdf("plots/model_evaluation_brms.pdf",width=11,height=11);
+print(ggarrange(p8,p9,p6,p7))
+dev.off()
+}
