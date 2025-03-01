@@ -19,6 +19,9 @@ library("ggforestplot")
 #remotes::install_github("JosephCrispell/basicPlotteR")
 library("basicPlotteR")
 
+## (this just globally sets the ggplot2 theme to theme_bw) 
+ggplot2::theme_set(ggplot2::theme_bw(base_size = 16)) 
+
 setwd("~/Projects/PrimateLongevityGitHub//")
 source("load_data.R")
 source("support_functions.R")
