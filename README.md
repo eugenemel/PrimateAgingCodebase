@@ -4,9 +4,9 @@
 
 Run PIPELINE.R to reproduce the results in the manuscript.
 
-- data/ -  input datasets, including raw survival data, phylogenetic tree, and common names
+- data/ -  input datasets, including raw survival lifespan, phylogenetic tree, and common names
 - plots/ - generated figures
-- outputs/ - generate test files
+- outputs/ - generate text files
 
 ## Data Availability
 Subject level data is available through Primate Aging Database https://primatedatabase.org/
