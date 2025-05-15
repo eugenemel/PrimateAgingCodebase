@@ -12,6 +12,10 @@ lifetable <- function(X, interval = 2) {
   X$int.start <- age_breaks[findInterval(X$lifespan, age_breaks)]
   X$int.end <- age_breaks[findInterval(X$lifespan, age_breaks, rightmost.closed = TRUE) + 1]
   
+  
+   # Helper function for cumsum with NA handling
+  cumsum.na <- function(x, ...) {  x[is.na(x)] <- 0; cumsum(x)  }
+  
   res <- X %>% group_by(int.start, int.end, age_groups) %>% 
     summarise(lost = sum(event == 0), events = sum(event == 1))
   
@@ -20,16 +24,12 @@ lifetable <- function(X, interval = 2) {
   res$enter <- rev(cumsum(rev(res$lost + res$events)))
   res$rate <- with(res, events / (enter - events / 2 - lost / 2) / int.length)  
   
-  # Helper function for cumsum with NA handling
-  cumsum.na <- function(x, ...) { 
-    x[is.na(x)] <- 0
-    cumsum(x) 
-  }
-  
+ 
   res$surv <- with(res, exp(-cumsum.na(rate * int.length)))
   res$sd <- sqrt(res$rate * (1 - res$rate) / res$enter)  # binomial variance n*q*(1-q)
   res$log_rate <- log(res$rate)
   res$time <- res$int.start + (res$int.end - res$int.start) / 2
+  res$sexMature = min(X$sexMature); #used for supplementary material export
   
   return(res)
 }

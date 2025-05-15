@@ -1,10 +1,15 @@
 source("support_functions.R")
 
+ADJUST_AGE_SEX_MATURE=FALSE
+
 primate_tree_subset = keep.tip(primate_tree,tip = unique(ALL$species))
 #Life-table construction only post Sex Maturity
-dd = ALL %>% filter(species %in% primate_tree_subset$tip.label) %>% 
-  filter(lifespan>=sexMature)
-dd$lifespan = dd$lifespan - dd$sexMature
+dd = ALL %>% filter(species %in% primate_tree_subset$tip.label) %>%  filter(lifespan>=sexMature)
+
+if(ADJUST_AGE_SEX_MATURE) {
+  dd$lifespan = dd$lifespan - dd$sexMature
+}
+
 levels(dd$sex) = c("Female","Male","Both")
 
 #adjust for truncation
@@ -28,7 +33,7 @@ for(sp in unique(imalanced$species)) {
 
 LT <- dd %>% group_by(species,sex,source) %>% do(lifetable(.))
 LT =  LT %>% filter(rate >0)
-write.table(LT, file="outputs/primate_life_tables.tsv",sep="\t")
+write.table(LT, file="outputs/primate_life_tables.tsv",sep="\t", row.names = FALSE)
 
 #filer out species with fewer than 5 qx estimates
 EXCLUDE =LT %>% group_by(species,sex) %>% summarise(np=n()) %>% filter(np<3)
