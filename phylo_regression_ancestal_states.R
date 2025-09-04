@@ -105,6 +105,8 @@ cor.pagel <- corPagel(0.6, phy = primate_tree_subset, form = ~species)
 XIMP <- X
 XIMP$mrdr <- log(2) / XIMP$beta
 XIMP$species <- rownames(XIMP)
+XIMP$logMaxLifespan <- log2(XIMP$maxLifespan)
+XIMP$logQuantile50 <- log2(XIMP$quantile.50)
 
 # Export to LaTeX
 xtable::xtable(XIMP[, c("SexMature", "Log2BodyWt", "alpha", "beta", "mrdr", "quantile.50", "maxLifespan")])
@@ -428,11 +430,11 @@ if (1) {
 }
 
 
-doPhyloRegression <- function(yvar, xvar, ylab, xlab, title) {
+doPhyloRegression <- function(yvar, xvar, ylab, xlab, title, modeltype="BM", showUndjusted=FALSE) {
   formula_str <- as.formula(paste0(yvar, "~", xvar))
   plot(formula_str, data = XIMP, pch = 19, xlab = xlab, ylab = ylab, main = title)
 
-  pfit <- phylolm::phylolm(formula_str, data = XIMP, phy = primate_tree_subset, model = "BM")
+  pfit <- phylolm::phylolm(formula_str, data = XIMP, phy = primate_tree_subset, model = modeltype)
   pfit$bootstrap <- bootStrapPhylom(formula_str, XIMP, nboot = BOOT)
   for (i in 1:BOOT) {
     abline(coef = pfit$bootstrap[i, 1:2], col = "#3D6FB605", lwd = 10)
@@ -441,31 +443,39 @@ doPhyloRegression <- function(yvar, xvar, ylab, xlab, title) {
   abline(a = pfit$bootmean[1], b = pfit$bootmean[2], lwd = 5, col = "#3D6FB6")
   print(summary(pfit))
   r2 <- pfit$r.squared
-
-  lmfit <- lm(formula_str, data = XIMP)
-  lmfit$bootstrap <- bootStrapLM(formula_str, XIMP, nboot = BOOT)
-  for (i in 1:BOOT) {
-    abline(coef = lmfit$bootstrap[i, 1:2], col = "#ff1f3d05", lwd = 10)
+  
+  if(showUndjusted) { 
+    lmfit <- lm(formula_str, data = XIMP)
+    lmfit$bootstrap <- bootStrapLM(formula_str, XIMP, nboot = BOOT)
+    for (i in 1:BOOT) {
+      abline(coef = lmfit$bootstrap[i, 1:2], col = "#ff1f3d05", lwd = 10)
+    }
+    abline(coef = colMeans(lmfit$bootstrap), lwd = 3, col = "#ff1f3d", lty = 2)
+    tmp <- summary(lmfit)
+    lmr2 <- tmp$r.squared
+    #legend("bottomright", latex2exp::TeX(sprintf("$R^2$=%3.2f $\\phyR^2$=%3.2f", round(lmr2, 2), round(r2, 2))), border = 0)
   }
-  abline(coef = colMeans(lmfit$bootstrap), lwd = 3, col = "#ff1f3d", lty = 2)
-  tmp <- summary(lmfit)
-  lmr2 <- tmp$r.squared
 
+  legend("bottomright", latex2exp::TeX(sprintf("$phyR^2$=%3.2f", round(r2, 2))), border = 0)
   addTextLabels(XIMP[, xvar], XIMP[, yvar], rownames(XIMP), cex.label = 0.7, col.label = "black")
-  legend("bottomright", latex2exp::TeX(sprintf("$R^2$=%3.2f $\\phyR^2$=%3.2f",
-                                               round(lmr2, 2), round(r2, 2))), border = 0)
 }
 
 # BodyWeight Correlation
 if (1) {
   pdf("plots/body_weight_correlation.pdf", width = 10, height = 10)
   par(mfrow = c(2, 2), cex.lab = 1.2, cex.axis = 1.3, cex.main = 1.4)
-  doPhyloRegression("quantile.50", "Log2BodyWt", ylab = "Median Lifespan yrs.", xlab = "Log2(BodyWeight) kg.", title = "Median Lifespan vs Body Weight")
-  doPhyloRegression("maxLifespan", "Log2BodyWt", ylab = "Maximum Lifespan yrs.", xlab = "Log2(BodyWeight) kg.", title = "Maximum Lifespan vs Body Weight")
-  doPhyloRegression("alpha", "Log2BodyWt", ylab = "Baseline Hazard ln(alpha)", xlab = "Log2(BodyWeight) kg.", title = "Baseline Hazard vs Body Weight")
-  doPhyloRegression("beta", "Log2BodyWt", ylab = "Aging Rate", xlab = "Log2(BodyWeight) kg.", title = "Aging Rate vs Body Weight")
+  doPhyloRegression("logQuantile50", "Log2BodyWt", ylab = "Log2(Median Lifespan) yrs.", xlab = "Log2(BodyWeight) kg.", title = "Median Lifespan vs Body Weight", modeltype="BM")
+  doPhyloRegression("logMaxLifespan", "Log2BodyWt", ylab = "Log2(Maximum Lifespan) yrs.", xlab = "Log2(BodyWeight) kg.", title = "Maximum Lifespan vs Body Weight",modeltype="BM")
+  doPhyloRegression("alpha", "Log2BodyWt", ylab = "Baseline Hazard ln(alpha)", xlab = "Log2(BodyWeight) kg.", title = "Baseline Hazard vs Body Weight",modeltype="BM")
+  doPhyloRegression("mrdr", "Log2BodyWt", ylab = "Aging Rate", xlab = "Log2(BodyWeight) kg.", title = "Aging Rate vs Body Weight",modeltype="BM")
   dev.off()
 }
+
+## 
+par(mfrow = c(1, 2), cex.lab = 1.2, cex.axis = 1.3, cex.main = 1.4)
+doPhyloRegression("alpha", "beta", ylab = "Aging Rate (beta)", xlab = "ln(alpha)", title = "Baseline Hazard vs Aging Rate (Brownian)",modeltype="BM")
+doPhyloRegression("alpha", "beta", ylab = "Aging Rate (beta)", xlab = "ln(alpha)", title = "Baseline Hazard vs Aging Rate (Lambda)",modeltype="lambda")
+dev.off()
 
 # CORRELATIONS
 pfitBeta <- phylolm::phylolm(beta ~ alpha,
