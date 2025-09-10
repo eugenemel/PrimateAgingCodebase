@@ -1,4 +1,4 @@
-ESTIMATE=FALSE
+ESTIMATE=TRUE
 
 LTsubset =  LT
 primate_tree_subset = keep.tip(primate_tree,tip = unique(LTsubset$species))
