@@ -31,7 +31,7 @@ for(sp in unique(imalanced$species)) {
 # Lifetable precedure
 #
 
-LT <- dd %>% group_by(species,sex,source) %>% do(lifetable(.))
+LT <- dd %>% group_by(species,sex,source) %>% do(lifetable(.,interval = 1))
 LT =  LT %>% filter(rate >0)
 write.table(LT, file="outputs/primate_life_tables.tsv",sep="\t", row.names = FALSE)
 
