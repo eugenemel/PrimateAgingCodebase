@@ -34,13 +34,12 @@ qmax = 0.99;  # quantile to model
 
 qgomp2 <- function(p, beta, logalpha) { 
   beta=pmax(pmin(beta, 0.99), 0.001);
-  logalpha=pmax(pmin(logalpha,-1), -10);
+  logalpha=pmax(pmin(logalpha,-1), -20);
   1 / beta * log1p(-log1p(-p) * beta /exp(logalpha));
  }
 
 # Define posterior prediction function
 posterior_predict_qgomp <- function(i, prep, ...) {
-  mu <- prep$dpars$mu[, i]
   logalpha <- prep$dpars$logalpha[, i]
   beta <- prep$dpars$beta[, i]
   p <- 0.99  # Fixed quantile level
@@ -54,7 +53,6 @@ posterior_predict_qgomp <- function(i, prep, ...) {
 
 # Define posterior_epred function
 posterior_epred_gompertz_quantile <- function(prep) {
-  mu <- prep$dpars$mu
   logalpha <- prep$dpars$logalpha
   beta <- prep$dpars$beta
   p <- 0.99  # Fixed quantile level
@@ -68,7 +66,7 @@ posterior_epred_gompertz_quantile <- function(prep) {
 qgomp_family <- custom_family( "qgomp", 
   dpars = c("mu", "beta", "logalpha"),
   links = c("identity", "identity", "identity"),
-  lb = c(0, 0.001, -10),
+  lb = c(0, 0.001, -20),
   ub = c(NA, 0.99, -1),
   type = "real",
   posterior_predict = posterior_predict_qgomp,
@@ -105,7 +103,7 @@ stanvars <- stanvar(scode = stan_funs, block = "functions")
 # To include phylogenetic effects, the model would be modified as follows:
 bf_beta_phylo <- bf(beta ~ 1+Log2BodyWt + (1|gr(species, cov = A)))
 bf_logalpha_phylo <- bf(logalpha ~ 1+Log2BodyWt + (1|gr(species, cov = A)))
-bf_lifespan <- bf(maxLifespan | vreal(beta, logalpha) ~ qgomp2(0.99, beta, logalpha), family = qgomp_family)
+bf_lifespan <- bf(maxLifespan ~ qgomp2(0.99, beta, logalpha), family = qgomp_family)
 
 fit_gomp_phylo <- brm(
   bf_beta_phylo + bf_logalpha_phylo + bf_lifespan,
@@ -123,7 +121,8 @@ fit_gomp_phylo <- brm(
 library(ggplot2)
 library(tidybayes)
 
-PLOTS=plot(conditional_effects(fit_gomp_phylo, effects = "Log2BodyWt"), re_formula = NA, points = TRUE, rug = TRUE,ask=F,plot=F)
+PLOTS=plot(conditional_effects(fit_gomp_phylo, effects = "Log2BodyWt"), 
+           re_formula = NA, points = TRUE, rug = TRUE,ask=F,plot=F)
 ggarrange(plotlist = PLOTS,nrow = 1)
 
 
