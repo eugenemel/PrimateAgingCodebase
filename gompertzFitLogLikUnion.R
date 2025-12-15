@@ -55,17 +55,16 @@ stanFitSurvivalCurveLogLik =function(modeldf, Sigma) {
 
 if (ESTIMATE) {
   
-  #estimate, no information sharing
+  #Fit STAN model, ( diag VCV matrix, ie no information sharing)
   VCV=matrix(0,nrow(VCV),ncol(VCV));  
   diag(VCV)=1; 
-  nspp=nrow(VCV); VCV <- VCV/(det(VCV)^(1/nspp))# rescale vcv
-  
-  #Fit with RSTAN
+  nspp=nrow(VCV); 
   stanfitDiag  = stanFitSurvivalCurveLogLik(dd, VCV)
   
   #with information sharing
   VCV=vcv(primate_tree_subset) #BROWNIAN 
-  nspp=nrow(VCV); VCV <- VCV/(det(VCV)^(1/nspp)); #rescale vcv
+  nspp=nrow(VCV);
+  VCV <- VCV/(det(VCV)^(1/nspp)); #rescale vcv
   
   #Fit with RSTAN
   stanfitBrownian  = stanFitSurvivalCurveLogLik(dd, VCV)
@@ -188,3 +187,35 @@ for( cohortName in SUBSET) {
     }
 }
 dev.off()
+
+## Sensetivity to tree topology 
+if(0) {
+  for(i in 1:10) { 
+    VCV=get_random_vcv(primate_tree_subset);
+    VCV=get_random_vcv(primate_tree_subset,model="Pagel",value=0.93); #Pagel logBW=0.99, logAlpha=0.53
+    
+    nspp=nrow(VCV);
+    VCV <- VCV/(det(VCV)^(1/nspp)); #rescale vcv
+    
+    #Fit with RSTAN
+    stanfitBrownian  = stanFitSurvivalCurveLogLik(dd, VCV)
+    saveRDS(stanfitBrownian,sprintf("outputs/test_vcv_gompertzFitLogLikUnion.brownian_%s.fit",i));
+  }
+  
+  #load all fits
+  all_models=data.frame();
+  for(i in 1:10) {
+    fit=readRDS(sprintf("outputs/test_vcv_gompertzFitLogLikUnion.brownian_%s.fit",i));
+    aging_params = getStanFit(fit);
+    aging_params$ittr <- i;
+    all_models = bind_rows(all_models, aging_params);
+  }
+  
+  tmp=all_models %>% reshape2::dcast(species ~ ittr,value.var = "logA");
+  pairs(tmp[,-1])
+  tmp=all_models %>% reshape2::dcast(species ~ ittr,value.var = "mrdr");
+  pairs(tmp[,-1])
+  
+}
+
+

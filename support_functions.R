@@ -106,3 +106,31 @@ rlmbroom <- function(df) {
 qgomp <- function(p, shape, rate) {
   1 / shape * log1p(-log1p(-p) * shape / rate)
 }
+
+#` Function to sample primate tree
+get_random_tree <- function() {
+  primates <- read.nexus("data/TreeBlock_10kTrees_Primates_Version3.nex",force.multi = FALSE)
+  #get random tree
+  num_trees = length(primates)
+  tree_num = sample(1:num_trees, 1);
+  selected_tree = primates[[tree_num]]
+  
+  #subset to species in data
+  keep_species = gsub(" ", "_", common_sci_names$sci_name)
+  selected_tree = keep.tip(selected_tree,keep_species)
+  
+  #rename tips to common names
+  common_names  = common_sci_names[match(selected_tree$tip.label,common_sci_names$tip.label), "common_name"]
+  selected_tree$tip.label = paste(common_names)
+  return(selected_tree);
+}
+
+#Sample random tree and return VCV matrix, subset to reference tree tips
+get_random_vcv <- function(reference_tree = primate_tree, model="Brownian", ...) {
+  tips = reference_tree$tip.label;
+  tree2=get_random_tree();  
+  v2=ape::vcv(tree2, model=model, ...);
+  v2=v2[tips,];
+  v2=v2[,tips];
+  return(v2);
+}

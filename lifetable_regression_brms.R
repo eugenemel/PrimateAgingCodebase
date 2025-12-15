@@ -1,4 +1,4 @@
-ESTIMATE=TRUE
+ESTIMATE=FALSE; #set to TRUE to re-estimate models
 
 LTsubset =  LT
 primate_tree_subset = keep.tip(primate_tree,tip = unique(LTsubset$species))
@@ -116,3 +116,35 @@ if(0) {
     pp_check(model_simple, type = "ecdf_overlay_grouped", x="time", group = "species")
 }
 
+# sensitivity check to tree topology 
+if(0) {
+  for(i in 1:10) { 
+     VCV=get_random_vcv(primate_tree_subset);
+     #fit phylogenetic model
+     model_phylo <- brm(
+       log_rate ~ 1 + time + sex + time*sex + (1 + time + sex + time*sex | gr(phy=species,cov=A)),
+       data = LTsubset, 
+       family = gaussian(),
+       data2 = list(A = VCV),
+       cores = 4,
+       control = list(adapt_delta = 0.8)
+     );
+     saveRDS(model_phylo, file=sprintf("outputs/testvcv_brms_phylo_%d.Rds",i));
+  }
+  
+  #load all test vcv models, extract aging parameters, and plot correlation
+  all_models=list();
+  for(i in 1:10) { 
+    model=readRDS(file=sprintf("outputs/testvcv_brms_phylo_%d.Rds",i));
+    brms_coef=coef(model)$species %>% as.data.frame()
+    brms_coef$species = rownames(brms_coef)
+    brms_coef$ittr <- i;
+    all_models = bind_rows(all_models, brms_coef);
+  }
+  tmp=all_models %>% reshape2::dcast(species ~ ittr,value.var = "Estimate.Intercept");
+  pairs(tmp[,-1])
+  tmp=all_models %>% reshape2::dcast(species ~ ittr,value.var = "Estimate.time");
+  pairs(tmp[,-1])
+}
+     
+  
