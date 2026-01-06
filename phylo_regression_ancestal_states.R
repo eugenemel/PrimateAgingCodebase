@@ -9,6 +9,9 @@ library(latex2exp)
 library(RColorBrewer)
 library(xtable)
 
+#Bootstrap plots
+set.seed(20250101)
+
 # Create a data frame to store the order of species in the tree
 TREE_ORDER <- data.frame(species = paste(primate_tree$tip.label))
 TREE_ORDER$tree_order <- 1:nrow(TREE_ORDER)
@@ -35,21 +38,21 @@ alpha0 <- ALLFITS %>%
   filter( model %in% c("BrownianVCV", "LifeTable_brms_phylo") ) %>% 
   filter(term == "alpha0") %>%
   group_by(species) %>%
-  dplyr::summarise(alpha = mean(estimate, na.rm = TRUE))
+  dplyr::summarise(alpha = mean(estimate, na.rm = TRUE), alpha_sd=mean(std.error, na.rm=TRUE))
+
 
 beta0 <- ALLFITS %>%
   filter( model %in% c("BrownianVCV", "LifeTable_brms_phylo") ) %>% 
   filter(term == "beta0") %>%
   group_by(species) %>%
-  dplyr::summarise(beta = mean(estimate, na.rm = TRUE))
+  dplyr::summarise(beta = mean(estimate, na.rm = TRUE), beta_sd=mean(std.error, na.rm=TRUE))
 
 # Combine species summary data with alpha0 and beta0 estimates
 SPECIES_SUMMARY_AB <- SPECIES_SUMMARY %>%
   left_join(alpha0, by = "species") %>%
   left_join(beta0, by = "species") %>%
   dplyr::select(
-    species, maxLifespan, quantile.50, medianBodyWt, medianBodyWtFemale,
-    medianBodyWtMale, alpha, beta
+    species, maxLifespan, quantile.50, medianBodyWt, medianBodyWtFemale, medianBodyWtMale, alpha, alpha_sd, beta, beta_sd
   )
 
 # Correct body weight data for specific species
@@ -92,26 +95,30 @@ X$Log2BodyWtFemale <- log2(X$medianBodyWtFemale)
 X$Log2BodyWtMale <- log2(X$medianBodyWtMale)
 
 # Select relevant columns and remove rows with missing quantile.50 values
-X <- X[, c("maxLifespan", "quantile.50", "Log2BodyWt", "Log2BodyWtFemale", "Log2BodyWtMale", "alpha", "beta", "SexMature")]
+X <- X[, c("sci_name", "maxLifespan", "quantile.50", "Log2BodyWt", "Log2BodyWtFemale", "Log2BodyWtMale", "alpha", "alpha_sd", "beta", "beta_sd", "SexMature")]
 X <- X[!is.na(X$quantile.50), ]
 
 # Subset the primate tree
 primate_tree_subset <- keep.tip(primate_tree, tip = rownames(X))
 primate_tree_subset$node.label <- sprintf("%dn", seq(1, length(primate_tree_subset$node.label)) + 10)
 
-# Define correlation structures
-cor.brown <- corBrownian(1, phy = primate_tree_subset, form = ~species)
-cor.pagel <- corPagel(0.6, phy = primate_tree_subset, form = ~species)
 
 # Impute missing data and calculate MRDR
 XIMP <- X
-XIMP$mrdr <- log(2) / XIMP$beta
+XIMP$mrdr <-   log(2) / XIMP$beta
+XIMP$mrdr_lb = log(2) / (XIMP$beta + XIMP$beta_sd)
+XIMP$mrdr_ub=  log(2) / (XIMP$beta - XIMP$beta_sd)
+XIMP$mrdr_sd=  apply(XIMP[,c("mrdr_ub","mrdr_lb")],FUN=sd, MAR=1)
+
+
 XIMP$species <- rownames(XIMP)
 XIMP$logMaxLifespan <- log2(XIMP$maxLifespan)
 XIMP$logQuantile50 <- log2(XIMP$quantile.50)
 
-# Export to LaTeX
-xtable::xtable(XIMP[, c("SexMature", "Log2BodyWt", "alpha", "beta", "mrdr", "quantile.50", "maxLifespan")])
+# Summary table for export
+XIMP[, c("sci_name", "SexMature", "Log2BodyWt", "alpha", "alpha_sd", "beta", "beta_sd", "mrdr", "mrdr_sd", "quantile.50", "maxLifespan")] %>% clipr::write_clip()
+XIMP[, c("sci_name", "SexMature", "Log2BodyWt", "alpha", "alpha_sd", "beta", "beta_sd", "mrdr", "mrdr_sd", "quantile.50", "maxLifespan")] %>% View()
+xtable::xtable(XIMP[, c("sci_name", "SexMature", "Log2BodyWt", "alpha", "alpha_sd", "beta", "beta_sd", "mrdr", "mrdr_sd", "quantile.50", "maxLifespan")])
 
 # Phylogenetic signal tests
 phylosig(primate_tree_subset, XIMP$Log2BodyWt, method = "K", test = TRUE, nsim = 10000)
@@ -120,6 +127,7 @@ phylosig(primate_tree_subset, XIMP$quantile.50, method = "K", test = TRUE, nsim 
 phylosig(primate_tree_subset, XIMP$alpha, method = "K", test = TRUE, nsim = 10000)
 phylosig(primate_tree_subset, XIMP$mrdr, method = "K", test = TRUE, nsim = 10000)
 phylosig(primate_tree_subset, XIMP$beta, method = "K", test = TRUE, nsim = 10000)
+phylosig(primate_tree_subset, XIMP$SexMature, method = "K", test = TRUE, nsim = 10000)
 
 phylosig(primate_tree_subset, XIMP$Log2BodyWt, method = "lambda", test = TRUE)
 phylosig(primate_tree_subset, XIMP$maxLifespan, method = "lambda", test = TRUE)
@@ -127,6 +135,7 @@ phylosig(primate_tree_subset, XIMP$alpha, method = "lambda", test = TRUE)
 phylosig(primate_tree_subset, XIMP$quantile.50, method = "lambda", test = TRUE)
 phylosig(primate_tree_subset, XIMP$mrdr, method = "lambda", test = TRUE)
 phylosig(primate_tree_subset, XIMP$beta, method = "lambda", test = TRUE)
+phylosig(primate_tree_subset, XIMP$SexMature, method = "lambda", test = TRUE)
 
 # Ancestral State Reconstruction (MCMC)
 par(mfrow = c(1, 1))
@@ -139,21 +148,32 @@ par(mfrow = c(1, 1))
 for (featureName in c("maxLifespan", "quantile.50", "Log2BodyWt", "alpha", "beta", "mrdr")) {
   roundDigits <- 2
   selectedPallete <- Lab.palette
-  if (featureName == "quantile.50") {
-    roundDigits <- 0
-  }
-  if (featureName == "beta") {
-    selectedPallete <- Lab.palette_inverse
-  }
-  if (featureName == "alpha") {
-    selectedPallete <- Lab.palette_inverse
-  }
+  if (featureName == "quantile.50") { roundDigits <- 0 }
+  if (featureName == "maxLifespan") { roundDigits <- 0 }
+  if (featureName == "beta") { selectedPallete <- Lab.palette_inverse }
+  if (featureName == "alpha") { selectedPallete <- Lab.palette_inverse }
 
   Xfeature <- XIMP[, featureName]
   names(Xfeature) <- rownames(XIMP)
   limits <- as.numeric(quantile(Xfeature, c(0.05, 0.95)))
+  
+  
+  #Max Likelihood Ancestral State Reconstruction
+  
   corfunc <- corBrownian(1, phy = primate_tree_subset)
-  acefit <- ace(Xfeature, primate_tree_subset, corStruct = corfunc, method = "GLS")
+  acefit_BM <- ace(Xfeature, primate_tree_subset, corStruct = corfunc, method="ML")
+  
+  corfunc <- corPagel(0.5, phy = primate_tree_subset)
+  acefit_Pagel <- ace(Xfeature, primate_tree_subset, corStruct = corfunc, method="ML")
+ 
+  
+  
+  #Bayesian MCMC Ancestral State Reconstruction
+  mcmc.trait <- anc.Bayes(primate_tree_subset, Xfeature, ngen = 200000)
+  mcmc.trait$mean <- apply( mcmc.trait$mcmc, 2, mean)[3:(primate_tree_subset$Nnode + 2)]
+  
+  data.frame(acefit_BM$ace, acefit_BM$CI95, acefit_Pagel$ace, acefit_Pagel$CI95,mcmc.trait$mean) %>% clipr::write_clip()
+  
 
   cmapout <- contMap(
     primate_tree_subset,
@@ -168,10 +188,13 @@ for (featureName in c("maxLifespan", "quantile.50", "Log2BodyWt", "alpha", "beta
 
   plot(setMap(cmapout, colors = selectedPallete(100)), lwd = 6, leg.txt = featureName)
   tiplabels(round(Xfeature, roundDigits), adj = c(+0.8, +0.5), bg = "white", cex = 0.5)
-  nodelabels(round(acefit$ace, roundDigits), thermo = acefit$lik.anc, cex = 0.5, bg = "white")
+  #nodelabels(round(acefit$ace, roundDigits), thermo = acefit$lik.anc, cex = 0.5, bg = "white")
+  nodelabels(round(mcmc.trait$mean, roundDigits), cex = 0.5, bg = "white")
 }
 dev.off()
 
+
+# MCMC Ancestral State Reconstruction
 if (TRUE) {
   trait <- XIMP[, "SexMature"]
   names(trait) <- rownames(XIMP)
@@ -190,6 +213,7 @@ if (TRUE) {
   mcmc.mrdr <- anc.Bayes(primate_tree_subset, trait, ngen = 200000)
   mcmcfit.mean.mrdr <- apply(mcmc.mrdr$mcmc, 2, mean)[3:(primate_tree_subset$Nnode + 2)]
   mcmcfit.mean.mrdr_sd <- apply(mcmc.mrdr$mcmc, 2, sd)[3:(primate_tree_subset$Nnode + 2)]
+  
 
   trait <- XIMP[, "alpha"]
   names(trait) <- rownames(XIMP)
@@ -226,6 +250,7 @@ if (TRUE) {
   ) %>% write.table("outputs/ancestral_states.tsv", sep = "\t")
 }
 
+
 if (1) {
   pdf("plots/ancestral_states_recon.pdf", width = 12, height = 7.5)
   par(mfrow = c(1, 2))
@@ -233,10 +258,10 @@ if (1) {
   trait <- XIMP[, "mrdr"]
   names(trait) <- rownames(XIMP)
   limits <- as.numeric(quantile(trait, c(0.05, 0.95)))
-  cmapout <- contMap(primate_tree_subset, trait, lims = limits, plot = FALSE)
+  cmapout <- contMap(primate_tree_subset, trait, lims = limits, plot = FALSE, CE=TRUE)
   nodelabel <- paste0(round(mcmcfit.mean.mrdr, 1))
   rounding <- 1
-
+  
   plot(setMap(cmapout, colors = Lab.palette(100)), lwd = 6, sig = 1, node.numbers = TRUE, outline = TRUE, font = 1, offset = 1.5, cex = 0.8, ftype = "reg",
        fsize = 0.9, edge.width = 8, leg.txt = "MRDT (yrs.)")
 
@@ -246,7 +271,7 @@ if (1) {
   trait <- XIMP[, "alpha"]
   names(trait) <- rownames(XIMP)
   limits <- as.numeric(quantile(trait, c(0.05, 0.95)))
-  cmapout <- contMap(primate_tree_subset, trait, lims = limits, plot = FALSE)
+  cmapout <- contMap(primate_tree_subset, trait, lims = limits, plot = FALSE, CE=TRUE)
 
   plot(setMap(cmapout, colors = Lab.palette_inverse(100)), lwd = 6, sig = 1, node.numbers = TRUE, outline = TRUE, font = 1, offset = 2, cex = 0.8, ftype = "reg", fsize = 0.9,
        edge.width = 8, leg.txt = "Baseline Hazard")
@@ -256,6 +281,43 @@ if (1) {
   tiplabels(round(trait, 1), adj = c(-0.4, +0.5), bg = "#FFFFFF00", cex = 0.7, frame = "rect")
   dev.off()
 }
+
+
+if (1) {
+  pdf("plots/ancestral_states_lifespan.pdf", width = 12, height = 8)
+  par(mfrow = c(1, 2))
+  rounding <- 0
+
+  trait <- XIMP[, "quantile.50"]
+  names(trait) <- rownames(XIMP)
+  limits <- as.numeric(quantile(trait, c(0.05, 0.95)))
+  cmapout <- contMap(primate_tree_subset, trait, lims = limits, plot = FALSE, CE=TRUE)
+  
+  plot(setMap(cmapout, colors = Lab.palette(100)), lwd = 6, sig = 1, node.numbers = TRUE, outline = TRUE, font = 1, offset = 2, cex = 0.8, ftype = "reg", fsize = 0.9,
+       edge.width = 8, leg.txt = "Median Lifespan (yrs.)")
+  
+  nodelabel <- paste0(round(mcmcfit.mean.q50, 0))
+  nodelabels(nodelabel, cex = 0.7, bg = "#FFFFFF", frame = "rect")
+  tiplabels(round(trait, 1), adj = c(-0.4, +0.5), bg = "#FFFFFF00", cex = 0.7, frame = "rect")
+  
+  
+  trait <- XIMP[, "maxLifespan"]
+  names(trait) <- rownames(XIMP)
+  limits <- as.numeric(quantile(trait, c(0.05, 0.95)))
+  cmapout <- contMap(primate_tree_subset, trait, lims = limits, plot = FALSE, CE=TRUE)
+  nodelabel <- paste0(round(mcmcfit.mean.maxLifespan, 0))
+
+  
+  plot(setMap(cmapout, colors = Lab.palette(100)), lwd = 6, sig = 1, node.numbers = TRUE, outline = TRUE, font = 1, offset = 1.5, cex = 0.8, ftype = "reg",
+       fsize = 0.9, edge.width = 8, leg.txt = "Maximum Lifespan (yrs.)")
+  
+  nodelabels(nodelabel, cex = 0.7, bg = "#FFFFFF", frame = "rect")
+  tiplabels(round(trait, rounding), adj = c(-0.4, +0.5), bg = "#FFFFFF00", cex = 0.7, frame = "rect")
+  
+  dev.off()
+}
+
+
 
 # Phylogenetic Regressions
 
@@ -395,7 +457,7 @@ doPhyloRegression <- function(yvar, xvar, ylab, xlab, title, modeltype="BM", sho
   formula_str <- as.formula(paste0(yvar, "~", xvar))
   plot(formula_str, data = XIMP, pch = 19, xlab = xlab, ylab = ylab, main = title)
 
-  pfit <- phylolm::phylolm(formula_str, data = XIMP, phy = primate_tree_subset, model = modeltype,   boot = 1000)
+  pfit <- phylolm::phylolm(formula_str, data = XIMP, phy = primate_tree_subset, model = modeltype, boot = 1000)
   pfit$bootstrap <- bootStrapPhylom(formula_str, XIMP, nboot = BOOT)
   bootmean=colMeans(pfit$bootstrap)
   for (i in 1:BOOT) {
@@ -424,12 +486,12 @@ doPhyloRegression <- function(yvar, xvar, ylab, xlab, title, modeltype="BM", sho
 
 # BodyWeight Correlation
 if (1) {
-  pdf("plots/aging_parameters_correlation.pdf", width = 10, height = 10)
+  pdf("plots/body_weight_correlation.pdf", width = 10, height = 10)
   par(mfrow = c(2, 2), cex.lab = 1.2, cex.axis = 1.3, cex.main = 1.4)
-  doPhyloRegression("logQuantile50", "Log2BodyWt", ylab = "Log2(Median Lifespan) yrs.", xlab = "Log2(BodyWeight) kg.", title = "Median Lifespan vs Body Weight", modeltype="BM")
-  doPhyloRegression("logMaxLifespan", "Log2BodyWt", ylab = "Log2(Maximum Lifespan) yrs.", xlab = "Log2(BodyWeight) kg.", title = "Maximum Lifespan vs Body Weight",modeltype="BM")
-  doPhyloRegression("alpha", "Log2BodyWt", ylab = "Baseline Hazard ln(alpha)", xlab = "Log2(BodyWeight) kg.", title = "Baseline Hazard vs Body Weight",modeltype="BM")
-  doPhyloRegression("beta", "Log2BodyWt", ylab = "Aging Rate", xlab = "Log2(BodyWeight) kg.", title = "Aging Rate vs Body Weight",modeltype="BM")
+  doPhyloRegression("logQuantile50", "Log2BodyWt", ylab = "Log2(Median Lifespan) yrs.", xlab = "Log2(BodyWeight) kg.", title = "A. Median Lifespan vs Body Weight", modeltype="lambda")
+  doPhyloRegression("logMaxLifespan", "Log2BodyWt", ylab = "Log2(Maximum Lifespan) yrs.", xlab = "Log2(BodyWeight) kg.", title = "B. Maximum Lifespan vs Body Weight",modeltype="lambda")
+  doPhyloRegression("alpha", "Log2BodyWt", ylab = "Baseline Hazard ln(alpha)", xlab = "Log2(BodyWeight) kg.", title = "C. Baseline Hazard vs Body Weight",modeltype="lambda")
+  doPhyloRegression("beta", "Log2BodyWt", ylab = "Aging Rate", xlab = "Log2(BodyWeight) kg.", title = "D. Aging Rate vs Body Weight",modeltype="lambda")
   dev.off()
 }
 
@@ -442,12 +504,13 @@ label1=latex2exp::TeX("Aging Rate $\\beta$")
 label2=latex2exp::TeX("Baseline Hazard $ln(\\alpha)$")
 doPhyloRegression("beta", "alpha", ylab=label1, xlab=label2, title = "Baseline Hazard vs Aging Rate (Brownian)",modeltype="BM", legendpos = "topleft")
 doPhyloRegression("beta", "alpha", ylab=label1, xlab=label2, title = "Baseline Hazard vs Aging Rate (Pagel Lambda)",modeltype="lambda", legendpos = "topleft")
-#doPhyloRegression("beta", "alpha", ylab=label1, xlab=label2, title = "Baseline Hazard vs Aging Rate (OUfixedRoot)",modeltype="OUfixedRoot", legendpos = "topleft")
-#doPhyloRegression("beta", "alpha", ylab=label1, xlab=label2, title = "Baseline Hazard vs Aging Rate (OUrandomRoot)",modeltype="OUrandomRoot", legendpos = "topleft")
+doPhyloRegression("beta", "alpha", ylab=label1, xlab=label2, title = "Baseline Hazard vs Aging Rate (OUfixedRoot)",modeltype="OUfixedRoot", legendpos = "topleft")
+doPhyloRegression("beta", "alpha", ylab=label1, xlab=label2, title = "Baseline Hazard vs Aging Rate (OUrandomRoot)",modeltype="OUrandomRoot", legendpos = "topleft")
 dev.off()
 }
 
 # CORRELATIONS
+cor.brown <- corBrownian(1, phy = primate_tree_subset, form = ~species)
 pfitBeta <- phylolm::phylolm(beta ~ alpha, data = XIMP, phy = primate_tree_subset, model = "lambda")
 summary(pfitBeta)
 doPhyloRegression("logMaxLifespan", "alpha", xlab = "Baseline Hazard ln(alpha)", ylab = "max Lifespan", title = "Baseline Hazard vs maxLifespan",modeltype="lambda")

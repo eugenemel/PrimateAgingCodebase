@@ -84,8 +84,7 @@ library(ggrepel)
 tmp=ALLFITS %>% filter(term %in% c("alpha0","beta0")) %>% 
   reshape2::dcast(species+model~term, value.var = "estimate", fun.aggregate = mean)
 
-t1=reshape2::dcast(ALLFITS %>% filter(term == "beta0"), species ~ term+model, value.var = "estimate",
-fun.aggregate = median) 
+t1=reshape2::dcast(ALLFITS %>% filter(term == "beta0"), species ~ term+model, value.var = "estimate", fun.aggregate = median) 
 t2=reshape2::dcast(ALLFITS %>% filter(term == "beta0"), species ~ term+model, value.var = "std.error",fun.aggregate = median)
 t3=reshape2::dcast(ALLFITS %>% filter(term == "alpha0"), species ~ term+model, value.var = "estimate",fun.aggregate = median)
 t4=reshape2::dcast(ALLFITS %>% filter(term == "alpha0"), species ~ term+model, value.var = "std.error",fun.aggregate = median)

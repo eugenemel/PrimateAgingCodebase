@@ -190,8 +190,9 @@ dev.off()
 
 ## Sensetivity to tree topology 
 if(0) {
+  source("support_functions.R")
   for(i in 1:10) { 
-    VCV=get_random_vcv(primate_tree_subset);
+    #VCV=get_random_vcv(primate_tree_subset);
     VCV=get_random_vcv(primate_tree_subset,model="Pagel",value=0.93); #Pagel logBW=0.99, logAlpha=0.53
     
     nspp=nrow(VCV);
@@ -199,13 +200,13 @@ if(0) {
     
     #Fit with RSTAN
     stanfitBrownian  = stanFitSurvivalCurveLogLik(dd, VCV)
-    saveRDS(stanfitBrownian,sprintf("outputs/test_vcv_gompertzFitLogLikUnion.brownian_%s.fit",i));
+    saveRDS(stanfitBrownian,sprintf("outputs/test_vcv_gompertzFitLogLikUnion.pagel_%s.fit",i));
   }
   
   #load all fits
   all_models=data.frame();
   for(i in 1:10) {
-    fit=readRDS(sprintf("outputs/test_vcv_gompertzFitLogLikUnion.brownian_%s.fit",i));
+    fit=readRDS(sprintf("outputs/test_vcv_gompertzFitLogLikUnion.pagel_%s.fit",i));
     aging_params = getStanFit(fit);
     aging_params$ittr <- i;
     all_models = bind_rows(all_models, aging_params);
@@ -213,8 +214,11 @@ if(0) {
   
   tmp=all_models %>% reshape2::dcast(species ~ ittr,value.var = "logA");
   pairs(tmp[,-1])
-  tmp=all_models %>% reshape2::dcast(species ~ ittr,value.var = "mrdr");
+  clipr::write_clip(cor(tmp[,-1]))
+  
+  tmp=all_models %>% reshape2::dcast(species ~ ittr,value.var = "beta");
   pairs(tmp[,-1])
+  clipr::write_clip(cor(tmp[,-1]))
   
 }
 

@@ -29,7 +29,8 @@ source("construct_lifetables.R")
 source("primate_tree_bootstap.R");
 source("plot_survival_hazard_estimates.R")
 source("lifetable_regression_brms.R")
-source("gompertzFitLogLikUnion.R")
+source("gompertzFitLogLikUnion.R");
 source("aging_parameters_forest_plot.R")
 source("phylo_regression_ancestal_states.R")
 source("bayesian_body_weight.R")
+source("power_sim2.R")

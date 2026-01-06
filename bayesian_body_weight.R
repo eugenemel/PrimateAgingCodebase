@@ -13,7 +13,7 @@
 #regresion model structure:
 #  beta is function of body weight
 #  alpha is function of body weight
-#  maxLifespan  is function of alpha and beta where p=0.99
+#  maxLifespan  is function of alpha and beta where p=0.  99
 # regress maxLifespan as function alpha and beta using the qgomp2 function
 #use chain of equations to implement custom family in brms
 #ignore phylogenetic effect for now
@@ -23,9 +23,8 @@
 
 
 library(brms)
-#lambda BW ~ beta 0.9772544
-#lambda BW ~ alpha 0.9838139
-A <- ape::vcv.phylo(primate_tree_subset, model="lambda", value=0.98) #model = "lambda" for pagel` lambda
+A <- ape::vcv.phylo(primate_tree_subset, model="lambda", value=0.96) #lambda = 0.95 max lifespan, 0.96 aging rate
+A <- ape::vcv.phylo(primate_tree_subset, model="Brownian")
 
 brmsdata=XIMP; 
 brmsdata$species=row.names(XIMP)
@@ -133,9 +132,9 @@ post <- as_draws_df(fit_gomp_phylo)
 # To visualize the effects of alpha and beta on lifespan, we can generate
 # predictions from the model over a grid of values.
 
-if(1) { 
-pdf("plots/body_weight_sem.pdf", width = 5, height = 12)
-par(mfrow = c(3, 1), cex.lab = 1.2, cex.axis = 1.3, cex.main = 1.4)
+if(1) {
+pdf("plots/body_weight_sem.pdf", width = 11, height = 9)
+par(mfrow = c(2, 2), cex.lab = 1.2, cex.axis = 1.3, cex.main = 1.4)
 
 #extract estimates
 coefout=post %>%
@@ -147,40 +146,44 @@ coefout=post %>%
 ) 
 
 #predict upper and lower bounds of beta, logalpha, maxLifespan
-
+pred_quantile = 0.95;
 predout=XIMP %>% arrange(Log2BodyWt)
 predout$pred_beta = coefout$beta_Intercept_50+coefout$beta_Log2BodyWt_50*predout$Log2BodyWt;
 predout$pred_alpha = coefout$logalpha_Intercept_50+ coefout$logalpha_Log2BodyWt_50*predout$Log2BodyWt;
-predout$pred_maxLifespan = qgomp2(0.99,predout$pred_beta,predout$pred_alpha)
+predout$pred_maxLifespan = qgomp2(pred_quantile,predout$pred_beta,predout$pred_alpha)
+
 
   #random sample 100 from post
   postsubset = post %>% sample_n(100)
-  plot(predout$Log2BodyWt, predout$beta, pch=19, main="Effect of Body Weight on Aging Rate", xlab="Log2(Body Weight)", ylab="Predicted beta");
+  plot(predout$Log2BodyWt, predout$beta, pch=19, main="Effect of Body Weight on Aging Rate (Eq.2)", xlab="Log2(Body Weight) kg.", ylab="Aging Rate");
   lines(predout$Log2BodyWt, predout$pred_beta, col='#3D6FB6', lwd=5);
   #add points from posterior samples
   for(i in 1:nrow(postsubset)){
     samp_beta = postsubset$b_beta_Intercept[i]+postsubset$b_beta_Log2BodyWt[i]*predout$Log2BodyWt
     lines(predout$Log2BodyWt, samp_beta, col = "#3D6FB605",lwd=10);
   }
+  addTextLabels(XIMP[, "Log2BodyWt"], XIMP[, "beta"], rownames(XIMP), cex.label = 0.8, lty=2, col.label = "black")
 
-  plot(predout$Log2BodyWt, predout$alpha, pch=19, main="Effect of Body Weight on Baseline Hazard", xlab="Log2(Body Weight)", ylab="Predicted ln(alpha)");
+  plot(predout$Log2BodyWt, predout$alpha, pch=19, main="Effect of Body Weight on Baseline Hazard (Eq.1)", xlab="Log2(Body Weight) kg.", ylab="Baseline Hazard ln(alpha)");
   lines(predout$Log2BodyWt, predout$pred_alpha, col='#3D6FB6', lwd=5);
   #add points from posterior samples
   for(i in 1:nrow(postsubset)){
     samp_alpha = postsubset$b_logalpha_Intercept[i]+postsubset$b_logalpha_Log2BodyWt[i]*predout$Log2BodyWt
     lines(predout$Log2BodyWt, samp_alpha, col = "#3D6FB605",lwd=10);
   }
+  addTextLabels(XIMP[, "Log2BodyWt"], XIMP[, "alpha"], rownames(XIMP), cex.label = 0.8, lty=2, col.label = "black")
   
-  plot(predout$Log2BodyWt, predout$maxLifespan, pch=19, main="Effect of Body Weight on Max.Lifespan", xlab="Log2(Body Weight)", ylab="Predicted Max Lifespan");
+  plot(predout$Log2BodyWt, predout$maxLifespan, pch=19, main="Effect of Body Weight on Max.Lifespan (Eq.3)", xlab="Log2(Body Weight) kg.", ylab="Max.Lifespan yrs.");
   lines(predout$Log2BodyWt, predout$pred_maxLifespan, col="#3D6FB6", lwd=5);
   #add points from posterior samples
   for(i in 1:nrow(postsubset)){
-    samp_lifespan = qgomp2(0.99,
+    samp_lifespan = qgomp2(pred_quantile,
       postsubset$b_beta_Intercept[i]+postsubset$b_beta_Log2BodyWt[i]*predout$Log2BodyWt,
       postsubset$b_logalpha_Intercept[i]+postsubset$b_logalpha_Log2BodyWt[i]*predout$Log2BodyWt
     )
     lines(predout$Log2BodyWt, samp_lifespan, col = "#3D6FB605", lwd=10);
   }
+  addTextLabels(XIMP[, "Log2BodyWt"], XIMP[, "maxLifespan"], rownames(XIMP), cex.label = 0.8, lty=2, col.label = "black")
   dev.off();
 }
 
@@ -196,12 +199,15 @@ library(bayesplot)
 posterior_samples <- as.data.frame(fit_gomp_phylo)
 
 
-# Forest plot of all main effects
+#Structural equation parameter histograms
+pdf("plots/body_weight_sem_params.pdf", width = 8, height = 6)
 mcmc_plot(fit_gomp_phylo, type="hist",
           variable = c("b_beta_Intercept", "b_beta_Log2BodyWt", 
                        "b_logalpha_Intercept", "b_logalpha_Log2BodyWt"),
           prob = 0.9) +
-  ggtitle("Histogram of Body Weight Effects")
+  ggtitle("Body Weight Effects on Aging Parameters") + 
+  geom_vline(xintercept = 0, linetype = "dashed")
+dev.off();
 
 # Summary table of the parameters
 summary(fit_gomp_phylo)

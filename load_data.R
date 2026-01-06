@@ -84,7 +84,7 @@ SUSPECT = c("Canine", "Human", "Feline", "Aye-aye")
 ALL = ALL %>% filter(!(species %in% SUSPECT)) 
 
 ### remove lifespan less than half a year
-ALL = ALL %>% filter(lifespan >= 1 & lifespan <= 100)
+ALL = ALL %>% filter(lifespan >= 0.8 & lifespan <= 100) #Lesser bush baby, 0.8
 ALL$sex=factor(paste(ALL$sex),level=c("Female","Male"))
 table(ALL$species,ALL$source)
 dim(ALL)

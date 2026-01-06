@@ -143,8 +143,14 @@ if(0) {
   }
   tmp=all_models %>% reshape2::dcast(species ~ ittr,value.var = "Estimate.Intercept");
   pairs(tmp[,-1])
+  clipr::write_clip(cor(tmp[,-1]))
   tmp=all_models %>% reshape2::dcast(species ~ ittr,value.var = "Estimate.time");
   pairs(tmp[,-1])
 }
-     
+ 
+
+ 
+
+    
+    
   

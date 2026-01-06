@@ -49,12 +49,16 @@ for (i in 1:NBOOT) {
   if (any(is.na(X))) next
   
   names(X) <- medianKMSurv$species
-  acefit <- ace(X, primate_tree_subset, corStruct = cor.brown, method = "GLS")
+  #acefit <- ace(X, primate_tree_subset, corStruct = cor.brown, method = "GLS")
   
+  #Bayesian MCMC Ancestral State Reconstruction
+  mcmc.trait <- anc.Bayes(primate_tree_subset, X, ngen = 10000)
+  mcmc.trait$mean <- apply( mcmc.trait$mcmc, 2, mean)[3:(primate_tree_subset$Nnode + 2)]
+
   # Save maximum lifespan results
   ACEBOOTSTRAP <- rbind(
     ACEBOOTSTRAP,
-    data.frame(node = names(acefit$ace), ace = acefit$ace, iter = i, estimate = "maximum")
+    data.frame(node = names(mcmc.trait$mean), ace = mcmc.trait$mean, iter = i, estimate = "maximum")
   )
   
   KMBOOTSTRAP <- rbind(
@@ -67,12 +71,15 @@ for (i in 1:NBOOT) {
   if (any(is.na(X))) next
   
   names(X) <- medianKMSurv$species
-  acefit <- ace(X, primate_tree_subset, corStruct = cor.brown, method = "GLS")
+  #acefit <- ace(X, primate_tree_subset, corStruct = cor.brown, method = "GLS")
+  mcmc.trait <- anc.Bayes(primate_tree_subset, X, ngen = 10000)
+  mcmc.trait$mean <- apply( mcmc.trait$mcmc, 2, mean)[3:(primate_tree_subset$Nnode + 2)]
+  
   
   # Save median lifespan results
   ACEBOOTSTRAP <- rbind(
     ACEBOOTSTRAP,
-    data.frame(node = names(acefit$ace), ace = acefit$ace, iter = i, estimate = "median")
+    data.frame(node = names(mcmc.trait$mean), ace = mcmc.trait$mean, iter = i, estimate = "median")
   )
   
   KMBOOTSTRAP <- rbind(

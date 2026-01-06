@@ -1,6 +1,6 @@
 source("support_functions.R")
 
-ADJUST_AGE_SEX_MATURE=FALSE
+ADJUST_AGE_SEX_MATURE=FALSE; #set FALSE to export lifetables, uncorrected for age at sexual maturity
 
 primate_tree_subset = keep.tip(primate_tree,tip = unique(ALL$species))
 #Life-table construction only post Sex Maturity
@@ -33,7 +33,9 @@ for(sp in unique(imalanced$species)) {
 
 LT <- dd %>% group_by(species,sex,source) %>% do(lifetable(.,interval = 1))
 LT =  LT %>% filter(rate >0)
-write.table(LT, file="outputs/primate_life_tables.tsv",sep="\t", row.names = FALSE)
+
+exportdf = LT %>% left_join(SPECIES_SUMMARY %>% dplyr::select(species,sci_name))
+write.table(exportdf, file="outputs/primate_life_tables.tsv",sep="\t", row.names = FALSE)
 
 #filer out species with fewer than 5 qx estimates
 EXCLUDE =LT %>% group_by(species,sex) %>% summarise(np=n()) %>% filter(np<3)
