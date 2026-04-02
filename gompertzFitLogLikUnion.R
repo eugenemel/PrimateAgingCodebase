@@ -1,4 +1,4 @@
-ESTIMATE=FALSE
+ESTIMATE=TRUE
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
 NumMCMCChains=4
@@ -135,6 +135,9 @@ for(featureName in c("logA","mrdr")) {
   nodelabels(round(acefit$ace,roundDigits),thermo = acefit$lik.anc, cex=0.5,bg="white") 
 }
 dev.off()
+
+#forest plot of aging parameters
+source("aging_parameters_forest_plot.R")
 
 pdf("plots/primate_fits_union.pdf",width=11,height=8)
 SUBSET=unique(FINAL$species)

@@ -1,5 +1,5 @@
-#ALL=read_excel("lifespan_data/
-BW=read_excel("data/subjects_measurements_quarterly_50th_BodyWeight.xlsx")
+BW=read.csv("data/PAD_subjects_measurements_quarterly_50th_BodyWeight.tsv",sep="\t")
+
 PAD<- read.csv("data/PAD_subjects.tsv",sep="\t",stringsAsFactors = F) %>% 
    dplyr::select("subject","birthdate","deathdate","status","species","sex","housing","diet",
                  "experimental", "last_measurement_date","last_transfer_date","last_observation_date")

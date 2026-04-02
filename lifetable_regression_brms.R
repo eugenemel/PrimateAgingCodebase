@@ -1,4 +1,4 @@
-ESTIMATE=FALSE; #set to TRUE to re-estimate models
+ESTIMATE=TRUE  #set to TRUE to re-estimate models
 
 LTsubset =  LT
 primate_tree_subset = keep.tip(primate_tree,tip = unique(LTsubset$species))
@@ -14,7 +14,6 @@ LTsubset$sd = sqrt(LTsubset$enter*LTsubset$rate*(1-LTsubset$rate))
 VCV=ape::vcv.phylo(phy=primate_tree_subset)
 
 if (ESTIMATE) {
-  
   model_simple <- brm(
     log_rate ~ 1 + time + sex + time*sex + (1 + time + sex + time*sex | gr(species)),
     data = LTsubset, 

@@ -1,16 +1,6 @@
 # Load necessary libraries
-library(ggplot2)
-library(dplyr)
-library(phytools)
-library(nlme)
-library(phylolm)
-library(flexsurv)
-library(latex2exp)
-library(RColorBrewer)
-library(xtable)
-
 #Bootstrap plots
-set.seed(20250101)
+set.seed(20250101) #optional, for reproducibility
 
 # Create a data frame to store the order of species in the tree
 TREE_ORDER <- data.frame(species = paste(primate_tree$tip.label))
@@ -22,7 +12,7 @@ SPECIES_SUMMARY$tree_order <- tmp$tree_order
 
 # Create a PDF of the sex maturity distribution
 pdf("plots/sex_maturity_distribution.pdf", width = 7.5, height = 5.5)
-ggplot(SPECIES_SUMMARY, aes(x = 0, reorder(species, tree_order))) +
+pout=ggplot(SPECIES_SUMMARY, aes(x = 0, reorder(species, tree_order))) +
   geom_col(aes(x = maxLifespan, fill = "Max"), color = "black", width = 0.5) +
   geom_col(aes(x = quantile.50, fill = "Median"), color = "black", width = 0.5) +
   geom_col(aes(x = SexMature, fill = "Sex Maturity"), color = "black", width = 0.5) +
@@ -31,6 +21,7 @@ ggplot(SPECIES_SUMMARY, aes(x = 0, reorder(species, tree_order))) +
   ylab("") +
   theme_bw(base_size = 14) +
   theme(legend.position = c(0.85, 0.85), legend.title = element_blank())
+  print(pout);
 dev.off()
 
 # Summarize alpha0 and beta0 estimates
@@ -117,7 +108,7 @@ XIMP$logQuantile50 <- log2(XIMP$quantile.50)
 
 # Summary table for export
 XIMP[, c("sci_name", "SexMature", "Log2BodyWt", "alpha", "alpha_sd", "beta", "beta_sd", "mrdr", "mrdr_sd", "quantile.50", "maxLifespan")] %>% clipr::write_clip()
-XIMP[, c("sci_name", "SexMature", "Log2BodyWt", "alpha", "alpha_sd", "beta", "beta_sd", "mrdr", "mrdr_sd", "quantile.50", "maxLifespan")] %>% View()
+#XIMP[, c("sci_name", "SexMature", "Log2BodyWt", "alpha", "alpha_sd", "beta", "beta_sd", "mrdr", "mrdr_sd", "quantile.50", "maxLifespan")] %>% View()
 xtable::xtable(XIMP[, c("sci_name", "SexMature", "Log2BodyWt", "alpha", "alpha_sd", "beta", "beta_sd", "mrdr", "mrdr_sd", "quantile.50", "maxLifespan")])
 
 # Phylogenetic signal tests
@@ -504,8 +495,8 @@ label1=latex2exp::TeX("Aging Rate $\\beta$")
 label2=latex2exp::TeX("Baseline Hazard $ln(\\alpha)$")
 doPhyloRegression("beta", "alpha", ylab=label1, xlab=label2, title = "Baseline Hazard vs Aging Rate (Brownian)",modeltype="BM", legendpos = "topleft")
 doPhyloRegression("beta", "alpha", ylab=label1, xlab=label2, title = "Baseline Hazard vs Aging Rate (Pagel Lambda)",modeltype="lambda", legendpos = "topleft")
-doPhyloRegression("beta", "alpha", ylab=label1, xlab=label2, title = "Baseline Hazard vs Aging Rate (OUfixedRoot)",modeltype="OUfixedRoot", legendpos = "topleft")
-doPhyloRegression("beta", "alpha", ylab=label1, xlab=label2, title = "Baseline Hazard vs Aging Rate (OUrandomRoot)",modeltype="OUrandomRoot", legendpos = "topleft")
+#doPhyloRegression("beta", "alpha", ylab=label1, xlab=label2, title = "Baseline Hazard vs Aging Rate (OUfixedRoot)",modeltype="OUfixedRoot", legendpos = "topleft")
+#doPhyloRegression("beta", "alpha", ylab=label1, xlab=label2, title = "Baseline Hazard vs Aging Rate (OUrandomRoot)",modeltype="OUrandomRoot", legendpos = "topleft")
 dev.off()
 }
 

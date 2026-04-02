@@ -57,8 +57,8 @@ stanFitSurvivalCurveLogLik =function(inputdf, Sigma, sample_n=100) {
 
 
 #FIT BAYESIAN MODEL
-
-if (ESTIMATE) {
+POWERSIM=TRUE
+if (POWRSIM) {
   #Fit STAN model, ( diag VCV matrix, ie no information sharing)
   VCV=vcv(primate_tree_subset) #BROWNIAN 
   nspp=nrow(VCV);

@@ -113,7 +113,8 @@ p2=ggplot(SPECIES_SUMMARY,aes(x=adultMedLifespan, y=adultMaxLifespan, label=spec
   ylab("Adult Max Lifespan") + xlab("Adult Median Lifespan")
 
 
-pdf("plots/lifespan_agesex_mature.pdf",width=12,height=6); ggarrange(p0,p1); dev.off();
+#Not used in manuscipt
+#pdf("plots/lifespan_agesex_mature.pdf",width=12,height=6); pout=ggarrange(p0,p1);  print(pout); dev.off();
 
 ##cleanup
 KEEP_OBJECTS=c(KEEP_OBJECTS, "lifetable", "LT",  "LMFIT", "RLMFIT")
